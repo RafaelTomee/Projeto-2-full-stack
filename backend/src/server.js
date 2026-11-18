@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { testarConexao } from './config/db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,6 +16,15 @@ app.get('/api/saude', (req, res) => {
 
 // TODO: registrar as rotas (auth, categorias, fontes-destinos, lancamentos, relatorios)
 // TODO: middleware de erros centralizado
+
+try {
+  await testarConexao();
+  console.log('Conectado ao banco de dados.');
+} catch (erro) {
+  console.error('Falha ao conectar no banco:', erro.message);
+  console.error('Confira o DATABASE_URL no .env e rode "npm run db:create".');
+  process.exit(1);
+}
 
 app.listen(PORT, () => {
   console.log(`API rodando em http://localhost:${PORT}`);
