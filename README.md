@@ -9,8 +9,8 @@ Aplicação de controle financeiro pessoal: o usuário se cadastra, faz login e 
 | Integrante | GitHub | Área principal |
 |---|---|---|
 | Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | A: autenticação, banco, segurança e documentação |
-| Silvio Henrique | [@silvioGPS](https://github.com/silvioGPS) | B: categorias, fontes/destinos e lançamentos |
-| Julio Cezar | [@JuliooCezar](https://github.com/JuliooCezar) | C: relatórios, faturas e dashboard |
+| _Nome (preencher)_ | _@usuario_ | B: categorias, fontes/destinos e lançamentos |
+| _Nome (preencher)_ | _@usuario_ | C: relatórios, faturas e dashboard |
 
 O quadro de tarefas está na aba **Projects** do repositório; cada tarefa é uma issue.
 
@@ -52,7 +52,9 @@ Lista para conhecimento e aprovação do professor.
 - E-mail gravado em minúsculas e CPF apenas com dígitos, para a unicidade funcionar de verdade.
 - Controladores ficam dentro dos arquivos de `routes/`; o acesso ao banco fica somente em `models/`.
 - _(A completar)_ Cálculo das faturas: decisão entre calcular na leitura ou gravar a data de vencimento em cada parcela.
-- _(A completar)_ Local das funções utilitárias puras (`cpfValido`, `calcularFatura`).
+- Funções utilitárias puras ficam em `backend/src/models/` (ex.: `validacoes.js` com `cpfValido`, `emailValido`, `senhaValida` e as normalizações). A fatura (`calcularFatura`) seguirá o mesmo padrão.
+- Testes unitários com o runner nativo do Node (`node:test`), sem biblioteca extra: `npm test` dentro de `backend/`. Ficam em `backend/test/`.
+- Senha limitada a 72 caracteres, porque o bcrypt ignora o que passa disso.
 
 ## Estrutura do projeto
 
