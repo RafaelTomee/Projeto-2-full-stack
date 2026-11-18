@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { testarConexao } from './config/db.js';
+import authRoutes from './routes/auth.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,7 +15,9 @@ app.get('/api/saude', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// TODO: registrar as rotas (auth, categorias, fontes-destinos, lancamentos, relatorios)
+app.use('/api/auth', authRoutes);
+
+// TODO: registrar as demais rotas (categorias, fontes-destinos, lancamentos, relatorios)
 // TODO: middleware de erros centralizado
 
 try {
