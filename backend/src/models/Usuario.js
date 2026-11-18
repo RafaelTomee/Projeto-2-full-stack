@@ -19,6 +19,15 @@ export const Usuario = {
     return rows[0];
   },
 
+  // Dados públicos do usuário (sem senha_hash).
+  async buscarPorId(id, client) {
+    const { rows } = await exec(client).query(
+      'SELECT id, nome, email, criado_em FROM usuarios WHERE id = $1',
+      [id],
+    );
+    return rows[0] ?? null;
+  },
+
   // Devolve também o senha_hash, pois o login precisa dele para comparar.
   // Uso interno: nunca envie este objeto inteiro na resposta da API.
   async buscarPorEmail(email, client) {
