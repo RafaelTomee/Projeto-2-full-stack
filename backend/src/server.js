@@ -37,6 +37,13 @@ try {
 }
 
 try {
+  exigirSegredoJwt();
+} catch (erro) {
+  console.error(erro.message);
+  process.exit(1);
+}
+
+try {
   await testarConexao();
   console.log('Conectado ao banco de dados.');
 } catch (erro) {
