@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import { testarConexao } from './config/db.js';
+import { exigirSegredoJwt } from './config/jwt.js';
 import authRoutes from './routes/auth.routes.js';
 
 const app = express();
@@ -19,6 +20,13 @@ app.use('/api/auth', authRoutes);
 
 // TODO: registrar as demais rotas (categorias, fontes-destinos, lancamentos, relatorios)
 // TODO: middleware de erros centralizado
+
+try {
+  exigirSegredoJwt();
+} catch (erro) {
+  console.error(erro.message);
+  process.exit(1);
+}
 
 try {
   await testarConexao();
