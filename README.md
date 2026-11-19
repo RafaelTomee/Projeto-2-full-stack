@@ -8,11 +8,24 @@ Aplicação de controle financeiro pessoal: o usuário se cadastra, faz login e 
 
 | Integrante | GitHub | Área principal |
 |---|---|---|
-| Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | A: autenticação, banco, segurança e documentação |
+| Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | A: autenticação, banco, segurança, erros e documentação |
 | Silvio Henrique | [@silvioGPS](https://github.com/silvioGPS) | B: categorias, fontes/destinos e lançamentos |
 | Julio Cezar | [@JuliooCezar](https://github.com/JuliooCezar) | C: relatórios, faturas e dashboard |
 
 O quadro de tarefas está na aba **Projects** do repositório; cada tarefa é uma issue.
+
+## Status
+
+- [x] Estrutura do repositório e banco de dados (PostgreSQL)
+- [x] Validações de cadastro (CPF, e-mail, senha)
+- [x] Cadastro, login (JWT), `/me` e rate limit no login
+- [x] Middleware de erros centralizado e CORS restrito
+- [x] Front: Vite, rotas protegidas, cliente HTTP único e AuthContext
+- [ ] CRUD de categorias, fontes/destinos e lançamentos (com parcelamento)
+- [ ] Relatórios por categoria e por fonte/destino
+- [ ] Previsão de faturas dos cartões
+- [ ] Seed de demonstração
+- [ ] Desafio: saúde financeira (opcional)
 
 ## Decisões técnicas
 
@@ -28,7 +41,7 @@ Lista para conhecimento e aprovação do professor.
 
 | Biblioteca | Uso |
 |---|---|
-| express | Servidor HTTP e rotas |
+| express (v5) | Servidor HTTP e rotas |
 | cors | Libera apenas a origem do front-end |
 | dotenv | Variáveis de ambiente (`.env`) |
 | pg | Driver do PostgreSQL e pool de conexões |
@@ -36,23 +49,32 @@ Lista para conhecimento e aprovação do professor.
 | jsonwebtoken | Geração e validação do JWT |
 | express-rate-limit | Limite de tentativas na rota de login |
 
-**Front-end** (propostas, a confirmar quando o front for criado)
+**Front-end**
 
 | Biblioteca | Uso |
 |---|---|
 | react + vite | SPA |
 | react-router-dom | Roteamento e rotas protegidas |
 | axios | Cliente HTTP único, com tratamento de 401 |
-| recharts | Gráficos dos relatórios |
+| recharts _(proposta)_ | Gráficos dos relatórios, a instalar após aprovação |
+
+Os testes usam o runner nativo do Node (`node:test`), sem biblioteca extra, e o lint do front usa o `oxlint` que acompanha o template do Vite.
 
 ### Outras decisões
 
 - Back-end em ES Modules (`"type": "module"`).
 - Valores monetários em `NUMERIC(12,2)` no banco, nunca `float`.
-- E-mail gravado em minúsculas e CPF apenas com dígitos, para a unicidade funcionar de verdade.
+- E-mail gravado em minúsculas (`trim().toLowerCase()`) e CPF apenas com dígitos, para a unicidade funcionar de verdade.
+- Unicidade de e-mail e CPF garantida pelo banco (`UNIQUE`); o servidor traduz a violação (código `23505`) em resposta 409 com a mensagem no campo correto.
+- Cadastro em transação: usuário, categorias padrão e fontes/destinos padrão são gravados juntos, ou nenhum.
+- Senha com hash bcrypt (custo 10), limitada a 72 caracteres (o bcrypt ignora o que passa disso).
+- JWT assinado com HS256, validade de 1 hora (`JWT_EXPIRES_IN`), id do usuário no campo `sub`. O servidor não sobe sem `JWT_SECRET`.
+- Login com mensagem genérica ("E-mail ou senha inválidos") e comparação de hash mesmo quando o e-mail não existe, para o tempo de resposta não revelar quais e-mails estão cadastrados.
+- Rate limit no login: 10 tentativas com falha por IP a cada 15 minutos (logins bem-sucedidos não contam).
 - Controladores ficam dentro dos arquivos de `routes/`; o acesso ao banco fica somente em `models/`.
-- _(A completar)_ Cálculo das faturas: decisão entre calcular na leitura ou gravar a data de vencimento em cada parcela.
-- _(A completar)_ Local das funções utilitárias puras (`cpfValido`, `calcularFatura`).
+- Funções utilitárias puras ficam em `backend/src/models/` (ex.: `validacoes.js`).
+- Front: o token fica no `localStorage`; ao expirar (ou ao receber 401), o app volta ao login automaticamente.
+- _(A completar)_ Cálculo das faturas: calcular na leitura ou gravar a data de vencimento em cada parcela (e justificativa).
 
 ## Estrutura do projeto
 
@@ -64,17 +86,25 @@ Lista para conhecimento e aprovação do professor.
 │   ├── database/
 │   │   ├── schema.sql         criação das tabelas
 │   │   └── setup.js           cria o banco e aplica o schema (npm run db:create)
-│   └── src/
-│       ├── server.js          app Express, middlewares e rotas
-│       ├── routes/            rotas + controladores
-│       ├── models/            acesso ao banco e regras de persistência
-│       ├── middlewares/       autenticação JWT, validação, erros
-│       └── config/            conexão/pool do banco, configurações
+│   ├── src/
+│   │   ├── server.js          app Express, middlewares e rotas
+│   │   ├── routes/            rotas + controladores (auth.routes.js...)
+│   │   ├── models/            acesso ao banco, regras de persistência e utilitários puros
+│   │   ├── middlewares/       autenticar, validarCadastro, limitarLogin, erros
+│   │   └── config/            db.js (pool), jwt.js, cors.js
+│   └── test/                  testes (node:test)
 ├── frontend/
-│   └── src/
-│       ├── components/        componentes e páginas
-│       ├── contexts/          AuthContext e demais contextos
-│       └── services/          cliente HTTP (único ponto de acesso à API)
+│   ├── package.json
+│   ├── .env.example           VITE_API_URL (opcional)
+│   ├── README.md              guia do front (como chamar a API, criar telas)
+│   ├── src/
+│   │   ├── main.jsx, App.jsx  providers e rotas
+│   │   ├── components/        telas e componentes
+│   │   ├── contexts/          AuthContext
+│   │   └── services/          api.js (único acesso à API), authStorage.js, token.js
+│   └── test/                  testes dos serviços
+├── docs/
+│   └── padrao-de-erros.md     padrão de resposta de erro da API
 └── README.md
 ```
 
@@ -98,7 +128,7 @@ Edite o `.env` com os seus dados:
 | Variável | Descrição | Exemplo |
 |---|---|---|
 | `PORT` | Porta da API | `3000` |
-| `FRONTEND_URL` | Origem permitida no CORS | `http://localhost:5173` |
+| `FRONTEND_URL` | Origem(ns) permitida(s) no CORS, separadas por vírgula | `http://localhost:5173` |
 | `DATABASE_URL` | Conexão com o PostgreSQL | `postgresql://postgres:senha@localhost:5432/financas` |
 | `JWT_SECRET` | Segredo do JWT (string longa e aleatória) | — |
 | `JWT_EXPIRES_IN` | Validade do token | `1h` |
@@ -125,29 +155,45 @@ _Em breve:_ `npm run db:seed` (2 usuários e 3 meses de lançamentos).
 
 ### 3. Front-end
 
-_Em breve._
+```bash
+cd frontend
+npm install
+npm run dev               # http://localhost:5173
+```
+
+A API precisa estar no ar. Cadastre um usuário em `/cadastro` e faça login. Detalhes e exemplos em [`frontend/README.md`](frontend/README.md).
+
+### Testes e verificações
+
+```bash
+cd backend && npm test    # testes de integração precisam do banco configurado; sem ele, são ignorados
+cd frontend && npm test   # testes dos serviços (api.js, token, sessão)
+cd frontend && npm run lint && npm run build
+```
 
 ## Rotas da API
 
-Todas as rotas abaixo de `/api`, exceto cadastro e login, exigem o cabeçalho `Authorization: Bearer <token>`. Status: planejadas (as rotas ainda estão em desenvolvimento).
+Todas as rotas abaixo de `/api`, exceto cadastro e login, exigem o cabeçalho `Authorization: Bearer <token>`.
 
-| Método | Rota | Descrição |
-|---|---|---|
-| POST | `/api/auth/cadastro` | Cadastra usuário |
-| POST | `/api/auth/login` | Autentica e devolve o JWT |
-| GET | `/api/auth/me` | Dados do usuário logado |
-| GET, POST | `/api/categorias` | Lista / cria categorias |
-| PUT, DELETE | `/api/categorias/:id` | Edita / exclui categoria |
-| GET, POST | `/api/fontes-destinos` | Lista / cria fontes e destinos |
-| PUT, DELETE | `/api/fontes-destinos/:id` | Edita / exclui fonte/destino |
-| GET, POST | `/api/lancamentos` | Lista com filtros e paginação / cria (com parcelas) |
-| GET, PUT, DELETE | `/api/lancamentos/:id` | Detalha / edita / exclui (`?todasParcelas=true`) |
-| GET | `/api/relatorios/categorias` | Relatório por categoria |
-| GET | `/api/relatorios/fontes-destinos` | Relatório por fonte/destino |
-| GET | `/api/relatorios/faturas` | Previsão de faturas dos cartões |
-| GET | `/api/saude-financeira` | Desafio (opcional) |
+| Método | Rota | Descrição | Status |
+|---|---|---|---|
+| POST | `/api/auth/cadastro` | Cadastra usuário | Pronta |
+| POST | `/api/auth/login` | Autentica e devolve o JWT | Pronta |
+| GET | `/api/auth/me` | Dados do usuário logado | Pronta |
+| GET, POST | `/api/categorias` | Lista / cria categorias | Planejada |
+| PUT, DELETE | `/api/categorias/:id` | Edita / exclui categoria | Planejada |
+| GET, POST | `/api/fontes-destinos` | Lista / cria fontes e destinos | Planejada |
+| PUT, DELETE | `/api/fontes-destinos/:id` | Edita / exclui fonte/destino | Planejada |
+| GET, POST | `/api/lancamentos` | Lista com filtros e paginação / cria (com parcelas) | Planejada |
+| GET, PUT, DELETE | `/api/lancamentos/:id` | Detalha / edita / exclui (`?todasParcelas=true`) | Planejada |
+| GET | `/api/relatorios/categorias` | Relatório por categoria | Planejada |
+| GET | `/api/relatorios/fontes-destinos` | Relatório por fonte/destino | Planejada |
+| GET | `/api/relatorios/faturas` | Previsão de faturas dos cartões | Planejada |
+| GET | `/api/saude-financeira` | Desafio (opcional) | Planejada |
 
-Padrão de resposta de erro, igual em todas as rotas:
+## Padrão de erros da API
+
+Toda resposta de erro segue o mesmo formato, e o front-end trata todas do mesmo jeito:
 
 ```json
 {
@@ -156,18 +202,28 @@ Padrão de resposta de erro, igual em todas as rotas:
 }
 ```
 
+`campos` é opcional e só aparece em erros de formulário. Status usados: 400, 401, 404, 409, 413, 429 e 500 (genérico, sem vazar detalhes). Tabela completa e como lançar erros nas rotas: [`docs/padrao-de-erros.md`](docs/padrao-de-erros.md).
+
+## Como proteger uma rota (para quem cria rotas)
+
+```js
+import { autenticar } from '../middlewares/autenticar.js';
+import { erroValidacao, naoEncontrado } from '../middlewares/erros.js';
+
+router.get('/categorias', autenticar, async (req, res) => {
+  // req.usuarioId é o id do usuário logado (número). Use SEMPRE ele no WHERE:
+  //   SELECT ... FROM categorias WHERE usuario_id = $1
+  // Nunca pegue o id do usuário do corpo da requisição ou da URL.
+});
+```
+
+Registre a rota em `backend/src/server.js`, acima de `rotaNaoEncontrada` e `tratarErros`, que precisam ser as últimas.
+
 ## Fluxo de trabalho do grupo
 
 1. Cada tarefa é uma issue no quadro (Projects).
-2. Uma branch por tarefa, a partir da `main`: `feat/nome-curto`, `fix/nome-curto` ou `docs/nome-curto`.
+2. Uma branch por tarefa, a partir da `dev`: `feat/nome-curto`, `fix/nome-curto` ou `docs/nome-curto`.
 3. Commits pequenos e frequentes, com mensagens no padrão `tipo: descrição` (`feat`, `fix`, `docs`, `chore`).
-4. Pull Request para a `main` com `Closes #N` na descrição; outro integrante revisa antes do merge.
-5. Sem commit direto na `main` depois do setup inicial.
-
-## Checklist de entrega
-
-- [ ] Banco, bibliotecas e decisões comunicados ao professor
-- [ ] README completo (seed, front-end e decisões finais)
-- [ ] `.env` fora do repositório e `.env.example` versionado
-- [ ] Commits de todos os integrantes
-- [ ] Ensaio da apresentação (10 minutos)
+4. Pull Request para a `dev` com `Closes #N` na descrição; outro integrante revisa antes do merge.
+5. A `dev` é integrada à `main` nos marcos do projeto, por Pull Request.
+6. Sem commit direto na `main` ou na `dev`.
