@@ -9,8 +9,8 @@ Aplicação de controle financeiro pessoal: o usuário se cadastra, faz login e 
 | Integrante | GitHub | Área principal |
 |---|---|---|
 | Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | A: autenticação, banco, segurança, erros e documentação |
-| _Nome (preencher)_ | _@usuario_ | B: categorias, fontes/destinos, lançamentos e layout |
-| _Nome (preencher)_ | _@usuario_ | C: relatórios, faturas, dashboard e saúde financeira |
+| Silvio Henrique | [@silvioGPS](https://github.com/silvioGPS) | B: categorias, fontes/destinos e lançamentos |
+| Julio Cezar | [@JuliooCezar](https://github.com/JuliooCezar) | C: relatórios, faturas e dashboard |
 
 O quadro de tarefas está na aba **Projects** do repositório; cada tarefa é uma issue.
 
