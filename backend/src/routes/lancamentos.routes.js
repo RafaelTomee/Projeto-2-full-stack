@@ -39,6 +39,13 @@ function valorCorpo(valor) {
   return Math.round((numero + Number.EPSILON) * 100) / 100;
 }
 
+// totalParcelas não aceita conversão: "3", [3] e true são inválidos.
+function parcelasCorpo(valor) {
+  if (valor === undefined || valor === null) return 1;
+  if (typeof valor !== 'number' || !Number.isInteger(valor) || valor < 1 || valor > 48) return null;
+  return valor;
+}
+
 function dataValida(valor) {
   const texto = String(valor ?? '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) return false;
@@ -54,6 +61,7 @@ async function validarCorpo(corpo, usuarioId) {
   const valor = valorCorpo(corpo?.valor);
   const categoriaId = idCorpo(corpo?.categoriaId);
   const fonteDestinoId = idCorpo(corpo?.fonteDestinoId);
+  const totalParcelas = parcelasCorpo(corpo?.totalParcelas);
 
   if (!TIPOS.has(tipo)) campos.tipo = "O tipo deve ser 'entrada' ou 'saida'.";
   if (corpo?.descricao === undefined || corpo?.descricao === null) {
@@ -75,6 +83,7 @@ async function validarCorpo(corpo, usuarioId) {
   if (!dataValida(data)) campos.data = 'Informe uma data válida no formato AAAA-MM-DD.';
   if (categoriaId === null) campos.categoriaId = 'Informe uma categoria.';
   if (fonteDestinoId === null) campos.fonteDestinoId = 'Informe uma fonte/destino.';
+  if (totalParcelas === null) campos.totalParcelas = 'Informe entre 1 e 48 parcelas.';
   if (Object.keys(campos).length > 0) throw erroValidacao(campos);
 
   const categoria = await Lancamento.categoriaDoUsuario(categoriaId, usuarioId);
@@ -92,6 +101,21 @@ async function validarCorpo(corpo, usuarioId) {
       fonteDestinoId: 'Uma entrada deve usar renda ou conta; uma saída deve usar conta ou cartão de crédito.',
     });
   }
+  if (totalParcelas > 1) {
+    if (tipo !== 'saida') {
+      throw erroValidacao({ totalParcelas: 'O parcelamento só é permitido para saídas.' });
+    }
+    if (fonte.tipo !== 'cartao_credito') {
+      throw erroValidacao({ totalParcelas: 'O parcelamento só é permitido em cartão de crédito.' });
+    }
+    const minimo = Math.round(totalParcelas * 0.01 * 100) / 100;
+    if (valor < minimo) {
+      throw erroValidacao({
+        valor: `O valor mínimo para ${totalParcelas} parcelas é ${minimo.toFixed(2)}.`,
+        totalParcelas: `O valor mínimo para ${totalParcelas} parcelas é ${minimo.toFixed(2)}.`,
+      });
+    }
+  }
 
   return {
     tipo,
@@ -100,6 +124,7 @@ async function validarCorpo(corpo, usuarioId) {
     data,
     categoriaId,
     fonteDestinoId,
+    totalParcelas,
   };
 }
 
@@ -117,7 +142,10 @@ router.get('/:id', autenticar, async (req, res, next) => {
 router.post('/', autenticar, async (req, res, next) => {
   try {
     const dados = await validarCorpo(req.body, req.usuarioId);
-    res.status(201).json(await Lancamento.criar(req.usuarioId, dados));
+    const criado = dados.totalParcelas > 1
+      ? (await Lancamento.criarParcelados(req.usuarioId, dados))[0]
+      : await Lancamento.criar(req.usuarioId, dados);
+    res.status(201).json(criado);
   } catch (erro) {
     next(erro);
   }
@@ -158,7 +186,7 @@ router.delete('/:id', autenticar, async (req, res, next) => {
     const id = idValido(req.params.id);
     const atual = id ? await Lancamento.buscarPorId(id, req.usuarioId) : null;
     if (!atual) throw naoEncontrado(NAO_ENCONTRADO);
-    if (atual.grupoParcelamento) {
+    if (req.query.todasParcelas === 'true' && atual.grupoParcelamento) {
       await Lancamento.excluirGrupo(atual.grupoParcelamento, req.usuarioId);
     } else {
       await Lancamento.excluir(atual.id, req.usuarioId);
