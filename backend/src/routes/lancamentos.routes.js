@@ -29,6 +29,7 @@ async function validarCorpo(corpo, usuarioId) {
   const data = corpo?.data;
   const categoriaId = Number(corpo?.categoriaId);
   const fonteDestinoId = Number(corpo?.fonteDestinoId);
+  const totalParcelas = Number(corpo?.totalParcelas ?? 1);
 
   if (!TIPOS.has(tipo)) campos.tipo = "O tipo deve ser 'entrada' ou 'saida'.";
   if (!descricao) campos.descricao = 'A descrição é obrigatória.';
@@ -45,6 +46,9 @@ async function validarCorpo(corpo, usuarioId) {
   if (!Number.isInteger(fonteDestinoId) || fonteDestinoId <= 0) {
     campos.fonteDestinoId = 'Informe uma fonte/destino.';
   }
+  if (!Number.isInteger(totalParcelas) || totalParcelas < 1 || totalParcelas > 48) {
+    campos.totalParcelas = 'Informe entre 1 e 48 parcelas.';
+  }
   if (Object.keys(campos).length > 0) throw erroValidacao(campos);
 
   const categoria = await Lancamento.categoriaDoUsuario(categoriaId, usuarioId);
@@ -57,6 +61,11 @@ async function validarCorpo(corpo, usuarioId) {
 
   const fonte = await Lancamento.fonteDoUsuario(fonteDestinoId, usuarioId);
   if (!fonte) throw naoEncontrado('Fonte/destino não encontrado.');
+  if (totalParcelas > 1 && fonte.tipo !== 'cartao_credito') {
+    throw erroValidacao({
+      totalParcelas: 'O parcelamento só é permitido em cartão de crédito.',
+    });
+  }
 
   return {
     tipo,
@@ -65,6 +74,7 @@ async function validarCorpo(corpo, usuarioId) {
     data,
     categoriaId,
     fonteDestinoId,
+    totalParcelas,
   };
 }
 
@@ -82,7 +92,10 @@ router.get('/:id', autenticar, async (req, res, next) => {
 router.post('/', autenticar, async (req, res, next) => {
   try {
     const dados = await validarCorpo(req.body, req.usuarioId);
-    res.status(201).json(await Lancamento.criar(req.usuarioId, dados));
+    const criado = dados.totalParcelas > 1
+      ? (await Lancamento.criarParcelados(req.usuarioId, dados))[0]
+      : await Lancamento.criar(req.usuarioId, dados);
+    res.status(201).json(criado);
   } catch (erro) {
     next(erro);
   }
@@ -105,7 +118,11 @@ router.delete('/:id', autenticar, async (req, res, next) => {
     const id = idValido(req.params.id);
     const atual = id ? await Lancamento.buscarPorId(id, req.usuarioId) : null;
     if (!atual) throw naoEncontrado(NAO_ENCONTRADO);
-    await Lancamento.excluir(atual.id, req.usuarioId);
+    if (req.query.todasParcelas === 'true' && atual.grupoParcelamento) {
+      await Lancamento.excluirGrupo(atual.grupoParcelamento, req.usuarioId);
+    } else {
+      await Lancamento.excluir(atual.id, req.usuarioId);
+    }
     res.status(204).send();
   } catch (erro) {
     next(erro);
