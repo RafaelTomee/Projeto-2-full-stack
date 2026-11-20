@@ -21,6 +21,48 @@ function dataValida(valor) {
   return !Number.isNaN(data.getTime()) && data.toISOString().slice(0, 10) === texto;
 }
 
+function periodoPadrao() {
+  const agora = new Date();
+  const ano = agora.getUTCFullYear();
+  const mes = agora.getUTCMonth();
+  return {
+    inicio: new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10),
+    fim: new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10),
+  };
+}
+
+function validarFiltros(query) {
+  const campos = {};
+  const padrao = periodoPadrao();
+  const inicio = query.inicio ?? padrao.inicio;
+  const fim = query.fim ?? padrao.fim;
+  const tipo = query.tipo;
+  const categoriaId = query.categoriaId === undefined ? null : Number(query.categoriaId);
+  const fonteDestinoId = query.fonteDestinoId === undefined ? null : Number(query.fonteDestinoId);
+  const pagina = query.pagina === undefined ? 1 : Number(query.pagina);
+
+  const inicioValido = dataValida(inicio);
+  const fimValido = dataValida(fim);
+  if (!inicioValido) campos.inicio = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (!fimValido) campos.fim = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (inicioValido && fimValido && inicio > fim) {
+    campos.periodo = 'A data inicial não pode ser posterior à data final.';
+  }
+  if (tipo !== undefined && !TIPOS.has(tipo)) {
+    campos.tipo = "O tipo deve ser 'entrada' ou 'saida'.";
+  }
+  if (categoriaId !== null && (!Number.isInteger(categoriaId) || categoriaId <= 0)) {
+    campos.categoriaId = 'Informe um id de categoria válido.';
+  }
+  if (fonteDestinoId !== null && (!Number.isInteger(fonteDestinoId) || fonteDestinoId <= 0)) {
+    campos.fonteDestinoId = 'Informe um id de fonte/destino válido.';
+  }
+  if (!Number.isInteger(pagina) || pagina < 1) campos.pagina = 'Informe uma página válida.';
+  if (Object.keys(campos).length > 0) throw erroValidacao(campos);
+
+  return { inicio, fim, tipo, categoriaId, fonteDestinoId, pagina };
+}
+
 async function validarCorpo(corpo, usuarioId) {
   const campos = {};
   const tipo = corpo?.tipo;
@@ -77,6 +119,14 @@ async function validarCorpo(corpo, usuarioId) {
     totalParcelas,
   };
 }
+
+router.get('/', autenticar, async (req, res, next) => {
+  try {
+    res.json(await Lancamento.listar(req.usuarioId, validarFiltros(req.query)));
+  } catch (erro) {
+    next(erro);
+  }
+});
 
 router.get('/:id', autenticar, async (req, res, next) => {
   try {
