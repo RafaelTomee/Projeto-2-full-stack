@@ -1,4 +1,6 @@
-import { query } from '../config/db.js';
+import { randomUUID } from 'node:crypto';
+import { comTransacao, query } from '../config/db.js';
+import { dividirEmCentavos } from '../utils/parcelas.js';
 
 const CAMPOS = `
   id, tipo, descricao, valor, data::text AS data, categoria_id, fonte_destino_id,
@@ -39,15 +41,67 @@ export const Lancamento = {
     return rows[0] ?? null;
   },
 
-  async criar(usuarioId, { tipo, descricao, valor, data, categoriaId, fonteDestinoId }) {
-    const { rows } = await query(
+  async criar(
+    usuarioId,
+    {
+      tipo,
+      descricao,
+      valor,
+      data,
+      categoriaId,
+      fonteDestinoId,
+      parcelaAtual = 1,
+      totalParcelas = 1,
+      grupoParcelamento = null,
+    },
+    executar = query,
+  ) {
+    const { rows } = await executar(
       `INSERT INTO lancamentos
-         (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id,
+          parcela_atual, total_parcelas, grupo_parcelamento)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING ${CAMPOS}`,
-      [usuarioId, tipo, descricao, valor, data, categoriaId, fonteDestinoId],
+      [
+        usuarioId,
+        tipo,
+        descricao,
+        valor,
+        data,
+        categoriaId,
+        fonteDestinoId,
+        parcelaAtual,
+        totalParcelas,
+        grupoParcelamento,
+      ],
     );
     return publico(rows[0]);
+  },
+
+  async criarParcelados(usuarioId, dados) {
+    const grupo = randomUUID();
+    const centavos = dividirEmCentavos(dados.valor, dados.totalParcelas);
+
+    return comTransacao(async (client) => {
+      const executar = (sql, parametros) => client.query(sql, parametros);
+      const parcelas = [];
+      for (const [indice, valorCentavos] of centavos.entries()) {
+        parcelas.push(
+          await this.criar(
+            usuarioId,
+            {
+              ...dados,
+              valor: valorCentavos / 100,
+              parcelaAtual: indice + 1,
+              totalParcelas: dados.totalParcelas,
+              grupoParcelamento: grupo,
+            },
+            executar,
+          ),
+        );
+      }
+      return parcelas;
+    });
   },
 
   async buscarPorId(id, usuarioId) {
@@ -89,10 +143,10 @@ export const Lancamento = {
     return rowCount > 0;
   },
 
-  async excluirGrupo(grupoId, usuarioId) {
+  async excluirGrupo(grupoParcelamento, usuarioId) {
     const { rowCount } = await query(
-      'DELETE FROM lancamentos WHERE usuario_id = $1 AND grupo_parcelamento = $2',
-      [usuarioId, grupoId],
+      'DELETE FROM lancamentos WHERE grupo_parcelamento = $1 AND usuario_id = $2',
+      [grupoParcelamento, usuarioId],
     );
     return rowCount > 0;
   },
