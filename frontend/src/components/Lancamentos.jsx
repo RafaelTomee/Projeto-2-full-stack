@@ -3,21 +3,35 @@ import { api, extrairErro } from '../services/api.js'
 import { formatarData, formatarMoeda } from '../utils/formatacao.js'
 import {
   filtrosParaParams,
+  fontesParaTipo,
+  foraDoPeriodo,
+  hojeIso,
   lancamentoParaFormulario,
   lancamentoParaPayload,
+  paginaAjustada,
   periodoPadrao,
   rotuloParcela,
 } from '../utils/lancamentos.js'
 import { CampoMoeda, Loading, MensagemErro, ModalConfirmacao, Vazio } from './ui/index.js'
 
 const ROTULOS_TIPO = { entrada: 'Entrada', saida: 'Saída' }
+const ROTULOS_ERROS = {
+  tipo: 'Tipo',
+  descricao: 'Descrição',
+  valor: 'Valor',
+  data: 'Data',
+  categoriaId: 'Categoria',
+  fonteDestinoId: 'Fonte/destino',
+  totalParcelas: 'Parcelas',
+  periodo: 'Período',
+}
 const VAZIO = {
   lancamentos: [],
+  pagina: 1,
   totalPaginas: 1,
   totalRegistros: 0,
   totais: { entradas: 0, saidas: 0, saldo: 0 },
 }
-const hojeIso = () => new Date().toISOString().slice(0, 10)
 const filtrosIniciais = () => ({
   ...periodoPadrao(),
   tipo: '',
@@ -40,8 +54,10 @@ export default function Lancamentos() {
   const [salvando, setSalvando] = useState(false)
   const [errosCampo, setErrosCampo] = useState({})
   const [erroSalvar, setErroSalvar] = useState(null)
+  const [aviso, setAviso] = useState(null)
   const [excluindo, setExcluindo] = useState(null)
   const [erroExcluir, setErroExcluir] = useState(null)
+  const [excluindoEmAndamento, setExcluindoEmAndamento] = useState(false)
 
   const carregar = useCallback(async (sinal) => {
     try {
@@ -51,8 +67,10 @@ export default function Lancamentos() {
       })
       setDados(data)
       setErroCarregar(null)
+      return data
     } catch (erro) {
       if (erro?.code !== 'ERR_CANCELED') setErroCarregar(extrairErro(erro))
+      return null
     } finally {
       if (!sinal?.aborted) setCarregando(false)
     }
@@ -69,8 +87,14 @@ export default function Lancamentos() {
 
   const recarregar = useCallback(async () => {
     setCarregando(true)
-    await carregar()
-  }, [carregar])
+    const data = await carregar()
+    // Excluir o último item da página 2 devolve lista vazia com totalPaginas=1.
+    const pagina = paginaAjustada(filtros.pagina, data?.totalPaginas)
+    if (pagina !== filtros.pagina) {
+      setCarregando(true)
+      setFiltros((atual) => ({ ...atual, pagina }))
+    }
+  }, [carregar, filtros.pagina])
 
   const carregarAuxiliares = useCallback(async () => {
     try {
@@ -92,6 +116,9 @@ export default function Lancamentos() {
   }, [carregarAuxiliares])
 
   const alterarFiltro = (campo, valor) => {
+    // Apagar "De"/"Até" enviaria o filtro vazio e a API aplicaria o padrão,
+    // deixando o campo vazio na tela com um período diferente. Mantém o valor anterior.
+    if ((campo === 'inicio' || campo === 'fim') && valor === '') return
     setCarregando(true)
     setFiltros((atual) => ({
       ...atual,
@@ -109,11 +136,33 @@ export default function Lancamentos() {
     () => categorias.filter((categoria) => categoria.tipo === formulario.tipo),
     [categorias, formulario.tipo],
   )
+  const fontesDisponiveis = useMemo(
+    () => fontesParaTipo(fontes, formulario.tipo),
+    [fontes, formulario.tipo],
+  )
   const fonteSelecionada = useMemo(
     () => fontes.find((fonte) => String(fonte.id) === String(formulario.fonteDestinoId)),
     [fontes, formulario.fonteDestinoId],
   )
   const ehCartao = fonteSelecionada?.tipo === 'cartao_credito'
+  const editandoParcela = Boolean(editando && Number(formulario.totalParcelas) > 1)
+  const campoParcelasVisivel = Boolean(ehCartao && !editando)
+  const camposVisiveis = new Set(
+    editandoParcela
+      ? ['descricao', 'categoriaId']
+      : [
+          'tipo',
+          'descricao',
+          'valor',
+          'data',
+          'categoriaId',
+          'fonteDestinoId',
+          ...(campoParcelasVisivel ? ['totalParcelas'] : []),
+        ],
+  )
+  const camposBanner = Object.fromEntries(
+    Object.entries(errosCampo).filter(([campo]) => !camposVisiveis.has(campo)),
+  )
   const nomeCategoria = (id) =>
     categorias.find((categoria) => String(categoria.id) === String(id))?.nome ?? '—'
   const nomeFonte = (id) =>
@@ -122,8 +171,8 @@ export default function Lancamentos() {
   const alterar = (campo, valor) => setFormulario((atual) => ({ ...atual, [campo]: valor }))
 
   const alterarTipo = (tipo) => {
-    setFormulario((atual) => ({ ...atual, tipo, categoriaId: '' }))
-    setErrosCampo((atual) => ({ ...atual, tipo: undefined, categoriaId: undefined }))
+    setFormulario((atual) => ({ ...atual, tipo, categoriaId: '', fonteDestinoId: '' }))
+    setErrosCampo({})
   }
 
   const limparFormulario = () => {
@@ -132,14 +181,12 @@ export default function Lancamentos() {
     setFormAberto(false)
     setErrosCampo({})
     setErroSalvar(null)
+    setAviso(null)
   }
 
   const abrirNovo = () => {
-    setFormulario(lancamentoParaFormulario({ data: hojeIso() }))
-    setEditando(null)
+    limparFormulario()
     setFormAberto(true)
-    setErrosCampo({})
-    setErroSalvar(null)
   }
 
   const aoEditar = (lancamento) => {
@@ -148,6 +195,7 @@ export default function Lancamentos() {
     setFormAberto(true)
     setErrosCampo({})
     setErroSalvar(null)
+    setAviso(null)
   }
 
   const aoEnviar = async (evento) => {
@@ -155,11 +203,15 @@ export default function Lancamentos() {
     setSalvando(true)
     setErrosCampo({})
     setErroSalvar(null)
+    setAviso(null)
     try {
       const payload = lancamentoParaPayload(formulario)
       if (editando) await api.put(`/lancamentos/${editando}`, payload)
       else await api.post('/lancamentos', payload)
       limparFormulario()
+      if (!editando && foraDoPeriodo(payload.data, filtros.inicio, filtros.fim)) {
+        setAviso(`Lançamento salvo em ${formatarData(payload.data)} — fora do período filtrado.`)
+      }
       await recarregar()
     } catch (erro) {
       const { mensagem, campos } = extrairErro(erro)
@@ -171,7 +223,8 @@ export default function Lancamentos() {
   }
 
   const confirmarExclusao = async (todas = false) => {
-    if (!excluindo) return
+    if (!excluindo || excluindoEmAndamento) return
+    setExcluindoEmAndamento(true)
     setErroExcluir(null)
     try {
       const sufixo = todas && excluindo.grupoParcelamento ? '?todasParcelas=true' : ''
@@ -179,12 +232,16 @@ export default function Lancamentos() {
       setExcluindo(null)
       await recarregar()
     } catch (erro) {
+      // Mantém o modal aberto: o erro aparece dentro dele, acima do overlay.
       setErroExcluir(extrairErro(erro).mensagem)
+    } finally {
+      setExcluindoEmAndamento(false)
     }
   }
 
   const { lancamentos, totalPaginas, totalRegistros, totais } = dados
   const parcelado = Boolean(excluindo?.grupoParcelamento)
+  const pagina = dados.pagina ?? 1
 
   return (
     <section>
@@ -280,12 +337,16 @@ export default function Lancamentos() {
               id="lancamento-tipo"
               value={formulario.tipo}
               onChange={(evento) => alterarTipo(evento.target.value)}
+              disabled={editandoParcela}
               aria-invalid={Boolean(errosCampo.tipo)}
+              aria-describedby={errosCampo.tipo ? 'lancamento-tipo-erro' : undefined}
             >
               <option value="entrada">Entrada</option>
               <option value="saida">Saída</option>
             </select>
-            {errosCampo.tipo && <p className="erro-campo">{errosCampo.tipo}</p>}
+            {errosCampo.tipo && (
+              <p id="lancamento-tipo-erro" className="erro-campo">{errosCampo.tipo}</p>
+            )}
           </div>
           <div>
             <label htmlFor="lancamento-descricao">Descrição</label>
@@ -294,14 +355,18 @@ export default function Lancamentos() {
               value={formulario.descricao}
               onChange={(evento) => alterar('descricao', evento.target.value)}
               aria-invalid={Boolean(errosCampo.descricao)}
+              aria-describedby={errosCampo.descricao ? 'lancamento-descricao-erro' : undefined}
               maxLength={120}
             />
-            {errosCampo.descricao && <p className="erro-campo">{errosCampo.descricao}</p>}
+            {errosCampo.descricao && (
+              <p id="lancamento-descricao-erro" className="erro-campo">{errosCampo.descricao}</p>
+            )}
           </div>
           <CampoMoeda
             label="Valor"
             valor={formulario.valor}
             onValorChange={(valor) => alterar('valor', valor)}
+            disabled={editandoParcela}
             erro={errosCampo.valor}
           />
           <div>
@@ -311,9 +376,13 @@ export default function Lancamentos() {
               type="date"
               value={formulario.data}
               onChange={(evento) => alterar('data', evento.target.value)}
+              disabled={editandoParcela}
               aria-invalid={Boolean(errosCampo.data)}
+              aria-describedby={errosCampo.data ? 'lancamento-data-erro' : undefined}
             />
-            {errosCampo.data && <p className="erro-campo">{errosCampo.data}</p>}
+            {errosCampo.data && (
+              <p id="lancamento-data-erro" className="erro-campo">{errosCampo.data}</p>
+            )}
           </div>
           <div>
             <label htmlFor="lancamento-categoria">Categoria</label>
@@ -322,13 +391,16 @@ export default function Lancamentos() {
               value={formulario.categoriaId}
               onChange={(evento) => alterar('categoriaId', evento.target.value)}
               aria-invalid={Boolean(errosCampo.categoriaId)}
+              aria-describedby={errosCampo.categoriaId ? 'lancamento-categoria-erro' : undefined}
             >
               <option value="">Selecione</option>
               {categoriasDisponiveis.map((categoria) => (
                 <option key={categoria.id} value={categoria.id}>{categoria.nome}</option>
               ))}
             </select>
-            {errosCampo.categoriaId && <p className="erro-campo">{errosCampo.categoriaId}</p>}
+            {errosCampo.categoriaId && (
+              <p id="lancamento-categoria-erro" className="erro-campo">{errosCampo.categoriaId}</p>
+            )}
           </div>
           <div>
             <label htmlFor="lancamento-fonte">Fonte/destino</label>
@@ -336,36 +408,43 @@ export default function Lancamentos() {
               id="lancamento-fonte"
               value={formulario.fonteDestinoId}
               onChange={(evento) => alterar('fonteDestinoId', evento.target.value)}
+              disabled={editandoParcela}
               aria-invalid={Boolean(errosCampo.fonteDestinoId)}
+              aria-describedby={errosCampo.fonteDestinoId ? 'lancamento-fonte-erro' : undefined}
             >
               <option value="">Selecione</option>
-              {fontes.map((fonte) => (
+              {fontesDisponiveis.map((fonte) => (
                 <option key={fonte.id} value={fonte.id}>{fonte.nome}</option>
               ))}
             </select>
-            {errosCampo.fonteDestinoId && <p className="erro-campo">{errosCampo.fonteDestinoId}</p>}
+            {errosCampo.fonteDestinoId && (
+              <p id="lancamento-fonte-erro" className="erro-campo">{errosCampo.fonteDestinoId}</p>
+            )}
           </div>
 
-          {ehCartao && (
+          {campoParcelasVisivel && (
             <div>
               <label htmlFor="lancamento-parcelas">Parcelas</label>
-              {editando ? (
-                <p className="ui-dica">
-                  Parcelamento fixo: {rotuloParcela(formulario)}. Edite apenas os demais campos.
-                </p>
-              ) : (
-                <input
-                  id="lancamento-parcelas"
-                  type="number"
-                  min="1"
-                  max="48"
-                  value={formulario.totalParcelas}
-                  onChange={(evento) => alterar('totalParcelas', evento.target.value)}
-                  aria-invalid={Boolean(errosCampo.totalParcelas)}
-                />
+              <input
+                id="lancamento-parcelas"
+                type="number"
+                min="1"
+                max="48"
+                value={formulario.totalParcelas}
+                onChange={(evento) => alterar('totalParcelas', evento.target.value)}
+                aria-invalid={Boolean(errosCampo.totalParcelas)}
+                aria-describedby={errosCampo.totalParcelas ? 'lancamento-parcelas-erro' : undefined}
+              />
+              {errosCampo.totalParcelas && (
+                <p id="lancamento-parcelas-erro" className="erro-campo">{errosCampo.totalParcelas}</p>
               )}
-              {errosCampo.totalParcelas && <p className="erro-campo">{errosCampo.totalParcelas}</p>}
             </div>
+          )}
+          {editandoParcela && (
+            <p className="ui-dica">
+              Parcelamento fixo: {rotuloParcela(formulario)}. Exclua e recrie o parcelamento
+              para alterar valor, data, tipo ou fonte.
+            </p>
           )}
 
           <div className="ui-formulario-acoes">
@@ -379,20 +458,36 @@ export default function Lancamentos() {
         </form>
       )}
 
-      {erroSalvar && <MensagemErro mensagem={erroSalvar} />}
-      {erroExcluir && <MensagemErro mensagem={erroExcluir} />}
+      {(erroSalvar || Object.keys(camposBanner).length > 0) && (
+        <MensagemErro
+          mensagem={erroSalvar}
+          campos={camposBanner}
+          rotulos={ROTULOS_ERROS}
+        />
+      )}
+      {aviso && <p className="ui-aviso" role="status">{aviso}</p>}
 
       {carregando ? (
         <Loading mensagem="Carregando lançamentos..." />
       ) : erroCarregar ? (
         <>
-          <MensagemErro mensagem={erroCarregar.mensagem} />
+          <MensagemErro
+            mensagem={erroCarregar.mensagem}
+            campos={erroCarregar.campos}
+            rotulos={ROTULOS_ERROS}
+          />
           <button type="button" className="ui-botao-secundario" onClick={recarregar}>Tentar novamente</button>
         </>
       ) : lancamentos.length === 0 ? (
-        <Vazio mensagem="Nenhum lançamento no período selecionado." />
+        <Vazio
+          mensagem={
+            pagina > 1 && totalRegistros > 0
+              ? 'Não há lançamentos nesta página.'
+              : 'Nenhum lançamento no período selecionado.'
+          }
+        />
       ) : (
-        <>
+        <div className="ui-tabela-rolavel">
           <table className="ui-tabela">
             <thead>
               <tr>
@@ -437,29 +532,31 @@ export default function Lancamentos() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
 
-          <div className="ui-paginacao">
-            <span>
-              Página {dados.pagina} de {totalPaginas} · {totalRegistros} registro(s)
-            </span>
-            <button
-              type="button"
-              className="ui-botao-secundario"
-              disabled={dados.pagina <= 1}
-              onClick={() => alterarFiltro('pagina', dados.pagina - 1)}
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              className="ui-botao-secundario"
-              disabled={dados.pagina >= totalPaginas}
-              onClick={() => alterarFiltro('pagina', dados.pagina + 1)}
-            >
-              Próxima
-            </button>
-          </div>
-        </>
+      {!carregando && !erroCarregar && (
+        <div className="ui-paginacao">
+          <span>
+            Página {pagina} de {totalPaginas} · {totalRegistros} registro(s)
+          </span>
+          <button
+            type="button"
+            className="ui-botao-secundario"
+            disabled={pagina <= 1}
+            onClick={() => alterarFiltro('pagina', pagina - 1)}
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            className="ui-botao-secundario"
+            disabled={pagina >= totalPaginas}
+            onClick={() => alterarFiltro('pagina', pagina + 1)}
+          >
+            Próxima
+          </button>
+        </div>
       )}
 
       <ModalConfirmacao
@@ -472,6 +569,11 @@ export default function Lancamentos() {
         }
         confirmarTexto={parcelado ? 'Só esta' : 'Excluir'}
         acaoExtraTexto={parcelado ? 'Todas as parcelas' : undefined}
+        erro={erroExcluir}
+        carregando={excluindoEmAndamento}
+        perigo={!parcelado}
+        neutro={parcelado}
+        acaoExtraPerigo={parcelado}
         onConfirmar={() => confirmarExclusao(false)}
         onAcaoExtra={parcelado ? () => confirmarExclusao(true) : undefined}
         onCancelar={() => setExcluindo(null)}

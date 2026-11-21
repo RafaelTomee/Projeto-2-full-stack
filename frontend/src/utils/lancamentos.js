@@ -1,10 +1,21 @@
-// Helpers puros da tela de lançamentos. A API usa UTC e camelCase na resposta.
+// Helpers puros da tela de lançamentos. A API responde em camelCase.
+// Datas AAAA-MM-DD não têm fuso: usar UTC ou getUTC* aqui desloca o dia/mês
+// perto da meia-noite em fusos como o de Brasília.
+export function isoLocal(data = new Date()) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+export function hojeIso() {
+  return isoLocal(new Date());
+}
+
 export function periodoPadrao(agora = new Date()) {
-  const ano = agora.getUTCFullYear();
-  const mes = agora.getUTCMonth();
   return {
-    inicio: new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10),
-    fim: new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10),
+    inicio: isoLocal(new Date(agora.getFullYear(), agora.getMonth(), 1)),
+    fim: isoLocal(new Date(agora.getFullYear(), agora.getMonth() + 1, 0)),
   };
 }
 
@@ -15,6 +26,18 @@ export function filtrosParaParams(filtros = {}) {
       ([, valor]) => valor !== '' && valor !== null && valor !== undefined,
     ),
   );
+}
+
+const TIPOS_FONTE = {
+  entrada: new Set(['renda', 'conta']),
+  saida: new Set(['conta', 'cartao_credito']),
+};
+
+// A mesma regra do backend (#42): entrada não vai para cartão e saída não
+// vai para renda. Evita que o campo de parcelas apareça para entrada.
+export function fontesParaTipo(fontes = [], tipo) {
+  const permitidos = TIPOS_FONTE[tipo] ?? new Set();
+  return fontes.filter((fonte) => permitidos.has(fonte.tipo));
 }
 
 export function lancamentoParaFormulario(lancamento = {}) {
@@ -47,4 +70,20 @@ export function rotuloParcela(lancamento = {}) {
   const atual = Number(lancamento.parcelaAtual ?? 1);
   const total = Number(lancamento.totalParcelas ?? 1);
   return total > 1 ? `${atual}/${total}` : '';
+}
+
+// Depois de excluir o único item da última página, a API devolve lista vazia
+// com os metadados da página antiga. Voltar para a última página evita que o
+// usuário fique "preso" numa página que não existe mais.
+export function paginaAjustada(pagina, totalPaginas) {
+  const atual = Number(pagina);
+  const total = Number(totalPaginas);
+  const seguro = (valor) => (Number.isFinite(valor) && valor >= 1 ? Math.floor(valor) : 1);
+  return Math.min(seguro(atual), seguro(total));
+}
+
+// Datas AAAA-MM-DD comparam corretamente como texto.
+export function foraDoPeriodo(data, inicio, fim) {
+  if (!data || !inicio || !fim) return false;
+  return data < inicio || data > fim;
 }
