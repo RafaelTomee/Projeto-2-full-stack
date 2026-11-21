@@ -1,4 +1,7 @@
-export default function MensagemErro({ mensagem, campos = {} }) {
+// `rotulos` traduz nomes técnicos da API para o usuário, ex.:
+// { categoriaId: 'Categoria', diaFechamento: 'Dia de fechamento' }.
+// Sem rótulo, mostramos apenas a mensagem (não o nome do campo em camelCase).
+export default function MensagemErro({ mensagem, campos = {}, rotulos = {} }) {
   const itens = Object.entries(campos ?? {});
   if (!mensagem && itens.length === 0) return null;
 
@@ -9,7 +12,8 @@ export default function MensagemErro({ mensagem, campos = {} }) {
         <ul>
           {itens.map(([campo, texto]) => (
             <li key={campo}>
-              <strong>{campo}:</strong> {texto}
+              {rotulos[campo] ? <strong>{rotulos[campo]}: </strong> : null}
+              {texto}
             </li>
           ))}
         </ul>

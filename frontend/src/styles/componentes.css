@@ -100,6 +100,7 @@
 .ui-modal h2 { margin-top: 0; }
 .ui-modal-acoes { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
 .ui-botao-secundario,
+.ui-botao-primario,
 .ui-botao-perigo {
   padding: .5rem .9rem;
   border: 1px solid #d1d5db;
@@ -107,7 +108,11 @@
   background: #fff;
   cursor: pointer;
 }
+.ui-botao-primario { border-color: #1d4ed8; background: #1d4ed8; color: #fff; }
 .ui-botao-perigo { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+.ui-botao-secundario:disabled,
+.ui-botao-primario:disabled,
+.ui-botao-perigo:disabled { opacity: .6; cursor: not-allowed; }
 
 .campo-moeda label { display: block; margin-bottom: .25rem; font-size: .9rem; }
 .campo-moeda input {

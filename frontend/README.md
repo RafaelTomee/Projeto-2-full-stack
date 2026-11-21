@@ -76,7 +76,7 @@ export default function Categorias() {
 
 ### Erros da API
 
-Todo erro da API tem o formato `{ erro, campos? }` (veja `docs/padrao-de-erros.md`). Use `extrairErro` para ler:
+Todo erro da API chega como `{ erro, campos? }` (veja `docs/padrao-de-erros.md`). `extrairErro` converte `erro` em `mensagem` — não leia `e.response.data.erro` direto:
 
 ```jsx
 try {
