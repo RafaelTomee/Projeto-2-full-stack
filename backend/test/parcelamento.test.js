@@ -206,6 +206,136 @@ test('DELETE apaga só a parcela sem a flag e todo o grupo com todasParcelas=tru
   assert.equal(fim.rowCount, 0);
 });
 
+test('entrada parcelada: 400 em totalParcelas', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const { rows } = await query(
+    `INSERT INTO categorias (usuario_id, nome, tipo) VALUES ($1, $2, $3) RETURNING id`,
+    [id, 'Salário', 'entrada'],
+  );
+  const rendaId = await criarFonte(id, 'renda');
+
+  const r = await chamar('POST', '/', token, {
+    tipo: 'entrada',
+    descricao: 'Entrada parcelada',
+    valor: 100,
+    data: '2026-11-20',
+    categoriaId: rows[0].id,
+    fonteDestinoId: rendaId,
+    totalParcelas: 3,
+  });
+  assert.equal(r.status, 400);
+  assert.ok(r.corpo.campos.totalParcelas);
+});
+
+test('totalParcelas com tipo errado: 400 no campo', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoriaId = await criarCategoria(id);
+  const fonteDestinoId = await criarFonte(id);
+  const base = {
+    tipo: 'saida',
+    descricao: 'Teste',
+    valor: 100,
+    data: '2026-11-20',
+    categoriaId,
+    fonteDestinoId,
+  };
+
+  for (const totalParcelas of ['3', [3], true, { n: 3 }, 3.5]) {
+    const r = await chamar('POST', '/', token, { ...base, totalParcelas });
+    assert.equal(r.status, 400, `totalParcelas ${JSON.stringify(totalParcelas)}`);
+    assert.ok(r.corpo.campos.totalParcelas);
+  }
+});
+
+test('valor mínimo por parcela: 400 com campos', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoriaId = await criarCategoria(id);
+  const fonteDestinoId = await criarFonte(id);
+  const base = { tipo: 'saida', descricao: 'Teste', data: '2026-11-20', categoriaId, fonteDestinoId };
+
+  for (const [valor, totalParcelas] of [[0.01, 2], [0.02, 3]]) {
+    const r = await chamar('POST', '/', token, { ...base, valor, totalParcelas });
+    assert.equal(r.status, 400, `valor ${valor} em ${totalParcelas}x`);
+    assert.ok(r.corpo.campos.valor);
+    assert.ok(r.corpo.campos.totalParcelas);
+  }
+});
+
+test('PUT em parcela não altera dados da compra', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoriaId = await criarCategoria(id);
+  const fonteDestinoId = await criarFonte(id);
+  const contaId = await criarFonte(id, 'conta');
+  const criada = await chamar('POST', '/', token, {
+    tipo: 'saida',
+    descricao: 'Compra',
+    valor: 300,
+    data: '2026-11-20',
+    categoriaId,
+    fonteDestinoId,
+    totalParcelas: 3,
+  });
+  const base = {
+    tipo: 'saida',
+    descricao: 'Compra',
+    valor: 100,
+    data: '2026-11-20',
+    categoriaId,
+    fonteDestinoId,
+  };
+
+  const { rows: entradaRows } = await query(
+    `INSERT INTO categorias (usuario_id, nome, tipo) VALUES ($1, $2, $3) RETURNING id`,
+    [id, 'Salário', 'entrada'],
+  );
+  const rendaId = await criarFonte(id, 'renda');
+  for (const [campo, valorCampo, overrides] of [
+    ['valor', 999, {}],
+    ['data', '2026-12-20', {}],
+    ['tipo', 'entrada', { categoriaId: entradaRows[0].id, fonteDestinoId: rendaId }],
+    ['fonteDestinoId', contaId, {}],
+  ]) {
+    const r = await chamar('PUT', `/${criada.corpo.id}`, token, {
+      ...base,
+      ...overrides,
+      [campo]: valorCampo,
+    });
+    assert.equal(r.status, 409, campo);
+  }
+  const intacta = (await chamar('GET', `/${criada.corpo.id}`, token)).corpo;
+  assert.equal(intacta.valor, 100);
+  assert.equal(intacta.data, '2026-11-20');
+  assert.equal(intacta.fonteDestinoId, fonteDestinoId);
+});
+
+test('usuário B não apaga grupo do A com todasParcelas=true', opcoes, async () => {
+  const usuario = await criarUsuario();
+  const outro = await criarUsuario();
+  const categoriaId = await criarCategoria(usuario.id);
+  const fonteDestinoId = await criarFonte(usuario.id);
+  const criada = await chamar('POST', '/', usuario.token, {
+    tipo: 'saida',
+    descricao: 'Compra',
+    valor: 30,
+    data: '2026-11-20',
+    categoriaId,
+    fonteDestinoId,
+    totalParcelas: 3,
+  });
+
+  const tentativa = await chamar(
+    'DELETE',
+    `/${criada.corpo.id}?todasParcelas=true`,
+    outro.token,
+  );
+  assert.equal(tentativa.status, 404);
+  const restantes = await query(
+    'SELECT id FROM lancamentos WHERE grupo_parcelamento = $1 AND usuario_id = $2',
+    [criada.corpo.grupoParcelamento, usuario.id],
+  );
+  assert.equal(restantes.rowCount, 3);
+});
+
 test('transação: falha no meio das inserções não grava nenhuma parcela', opcoes, async () => {
   const { id } = await criarUsuario();
   const categoriaId = await criarCategoria(id);

@@ -321,7 +321,10 @@ test('editar/excluir parcela afeta o grupo inteiro (com isolamento)', opcoes, as
   assert.equal((await chamar('DELETE', `/${ids[0]}`, outro.token)).status, 404);
   assert.equal((await chamar('GET', `/${ids[0]}`, usuario.token)).status, 200);
 
-  assert.equal((await chamar('DELETE', `/${ids[0]}`, usuario.token)).status, 204);
+  assert.equal(
+    (await chamar('DELETE', `/${ids[0]}?todasParcelas=true`, usuario.token)).status,
+    204,
+  );
   for (const id of ids) {
     assert.equal((await chamar('GET', `/${id}`, usuario.token)).status, 404);
   }
