@@ -10,7 +10,9 @@ export default function ModalConfirmacao({
   erro,
   confirmarTexto = 'Confirmar',
   cancelarTexto = 'Cancelar',
+  acaoExtraTexto,
   onConfirmar,
+  onAcaoExtra,
   onCancelar,
   carregando = false,
   perigo = true,
@@ -122,6 +124,11 @@ export default function ModalConfirmacao({
           >
             {confirmarTexto}
           </button>
+          {acaoExtraTexto && onAcaoExtra && (
+            <button type="button" className="ui-botao-secundario" onClick={onAcaoExtra}>
+              {acaoExtraTexto}
+            </button>
+          )}
         </div>
       </div>
     </div>
