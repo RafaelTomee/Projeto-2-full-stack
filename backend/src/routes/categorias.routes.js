@@ -8,17 +8,26 @@ const TIPOS = new Set(['entrada', 'saida']);
 const NOME_MAX = 60;
 const MSG_DUPLICADO = 'Já existe uma categoria com este nome e tipo.';
 const MSG_VINCULO = 'Não é possível excluir esta categoria: existem lançamentos vinculados a ela.';
+const MSG_TIPO_VINCULO = 'Não é possível alterar o tipo desta categoria: existem lançamentos vinculados a ela.';
 
 const conflitoNome = () => conflito(MSG_DUPLICADO, { nome: MSG_DUPLICADO });
 const conflitoVinculo = () => conflito(MSG_VINCULO);
+const conflitoTipo = () => conflito(MSG_TIPO_VINCULO, { tipo: MSG_TIPO_VINCULO });
 
 function validarCorpo(corpo) {
   const campos = {};
-  const nome = String(corpo?.nome ?? '').trim();
   const tipo = corpo?.tipo;
+  let nome = '';
 
-  if (!nome) campos.nome = 'O nome é obrigatório.';
-  else if (nome.length > NOME_MAX) campos.nome = `O nome deve ter no máximo ${NOME_MAX} caracteres.`;
+  if (corpo?.nome === undefined || corpo?.nome === null) {
+    campos.nome = 'O nome é obrigatório.';
+  } else if (typeof corpo.nome !== 'string') {
+    campos.nome = 'O nome deve ser um texto.';
+  } else {
+    nome = corpo.nome.trim();
+    if (!nome) campos.nome = 'O nome é obrigatório.';
+    else if (nome.length > NOME_MAX) campos.nome = `O nome deve ter no máximo ${NOME_MAX} caracteres.`;
+  }
   if (!TIPOS.has(tipo)) campos.tipo = "O tipo deve ser 'entrada' ou 'saida'.";
 
   if (Object.keys(campos).length > 0) throw erroValidacao(campos);
@@ -69,6 +78,9 @@ router.put('/:id', autenticar, async (req, res, next) => {
     const dados = validarCorpo(req.body);
     const atual = await Categoria.buscarPorId(req.params.id, req.usuarioId);
     if (!atual) throw naoEncontrado('Categoria não encontrada.');
+    if (atual.tipo !== dados.tipo && (await Categoria.temLancamentos(atual.id, req.usuarioId))) {
+      throw conflitoTipo();
+    }
     if (await Categoria.existeComNome(req.usuarioId, dados.nome, dados.tipo, atual.id)) {
       throw conflitoNome();
     }

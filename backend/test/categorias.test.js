@@ -165,6 +165,70 @@ test('categoria de outro usuário: 404 e sem vazamento na listagem', opcoes, asy
   assert.deepEqual((await chamar('GET', '/', usuarioB.token)).corpo, []);
 });
 
+test('nome que não é texto: 400 no campo', opcoes, async () => {
+  const { token } = await criarUsuario();
+  for (const nome of [{ a: 1 }, 123, true, [5]]) {
+    const r = await chamar('POST', '/', token, { nome, tipo: 'saida' });
+    assert.equal(r.status, 400);
+    assert.ok(r.corpo.campos.nome);
+  }
+});
+
+test('PUT não troca o tipo de categoria com lançamentos: 409 no campo tipo', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoria = await chamar('POST', '/', token, { nome: 'Mercado', tipo: 'saida' });
+  const { rows } = await query(
+    `INSERT INTO fontes_destinos (usuario_id, nome, tipo)
+     VALUES ($1, $2, $3) RETURNING id`,
+    [id, 'Conta tipo categoria', 'conta'],
+  );
+  await query(
+    `INSERT INTO lancamentos
+       (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, 'saida', 'Compra', 100, '2026-11-10', categoria.corpo.id, rows[0].id],
+  );
+
+  const trocada = await chamar('PUT', `/${categoria.corpo.id}`, token, {
+    nome: 'Mercado',
+    tipo: 'entrada',
+  });
+  assert.equal(trocada.status, 409);
+  assert.ok(trocada.corpo.campos.tipo);
+
+  const renomeada = await chamar('PUT', `/${categoria.corpo.id}`, token, {
+    nome: 'Supermercado',
+    tipo: 'saida',
+  });
+  assert.equal(renomeada.status, 200);
+  assert.equal(renomeada.corpo.nome, 'Supermercado');
+
+  const semVinculo = await chamar('POST', '/', token, { nome: 'Vazia', tipo: 'saida' });
+  const trocadaLivre = await chamar('PUT', `/${semVinculo.corpo.id}`, token, {
+    nome: 'Vazia',
+    tipo: 'entrada',
+  });
+  assert.equal(trocadaLivre.status, 200);
+  assert.equal(trocadaLivre.corpo.tipo, 'entrada');
+});
+
+test('unicidade case-insensitive resiste a POSTs simultâneos', opcoes, async () => {
+  const { token } = await criarUsuario();
+  const nomes = ['Lazer', 'LAZER', 'lazer', 'LaZeR', 'lAzEr', 'Lazer', 'LAZER', 'lazer'];
+  const respostas = await Promise.all(
+    nomes.map((nome) => chamar('POST', '/', token, { nome, tipo: 'saida' })),
+  );
+  assert.equal(respostas.filter((r) => r.status === 201).length, 1);
+  assert.ok(respostas.every((r) => r.status === 201 || r.status === 409));
+  assert.equal((await chamar('GET', '/', token)).corpo.length, 1);
+});
+
+test('id com byte nulo: 400 (não 500)', opcoes, async () => {
+  const { token } = await criarUsuario();
+  const r = await chamar('GET', '/%00', token);
+  assert.equal(r.status, 400);
+});
+
 test('exclusão bloqueada quando há lançamento vinculado: 409', opcoes, async () => {
   const { id, token } = await criarUsuario();
   const categoria = await chamar('POST', '/', token, { nome: 'Moradia', tipo: 'saida' });
