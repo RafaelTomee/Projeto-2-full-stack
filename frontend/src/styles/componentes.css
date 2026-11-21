@@ -1,0 +1,203 @@
+/* Componentes compartilhados (Pessoa B). Importados em main.jsx. */
+
+.layout-cabecalho {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 20%);
+}
+
+.layout-marca {
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.layout-usuario {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-left: auto;
+}
+
+.layout-menu-botao {
+  display: none;
+  padding: .4rem .7rem;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+}
+
+.layout-cabecalho nav a {
+  padding: .25rem .1rem;
+}
+
+.layout-cabecalho nav a.active {
+  text-decoration-thickness: 2px;
+  text-underline-offset: .35rem;
+}
+
+.ui-loading {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: 1rem 0;
+  color: #4b5563;
+}
+
+.ui-spinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #d1d5db;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: ui-girar .8s linear infinite;
+}
+
+@keyframes ui-girar {
+  to { transform: rotate(360deg); }
+}
+
+.ui-vazio {
+  padding: 2rem 1rem;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  text-align: center;
+}
+
+.ui-erro {
+  padding: .75rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.ui-erro p { margin: 0 0 .35rem; }
+.ui-erro ul { margin: .35rem 0 0; padding-left: 1.2rem; }
+
+.ui-modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(17 24 39 / 55%);
+}
+
+.ui-modal {
+  width: min(420px, 100%);
+  padding: 1.25rem;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 25%);
+}
+
+.ui-modal h2 { margin-top: 0; }
+.ui-modal-acoes { display: flex; justify-content: flex-end; gap: .5rem; margin-top: 1rem; }
+.ui-botao-secundario,
+.ui-botao-perigo {
+  padding: .5rem .9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+.ui-botao-perigo { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+
+.campo-moeda label { display: block; margin-bottom: .25rem; font-size: .9rem; }
+.campo-moeda input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .55rem .7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+.campo-moeda input[aria-invalid="true"] { border-color: #b91c1c; }
+
+.ui-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.ui-cabecalho h1 { margin: 0; }
+
+.ui-formulario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+.ui-formulario label { display: block; margin-bottom: .25rem; font-size: .9rem; }
+.ui-formulario input,
+.ui-formulario select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .55rem .7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+.ui-formulario input[aria-invalid="true"],
+.ui-formulario select[aria-invalid="true"] { border-color: #b91c1c; }
+.ui-formulario-acoes { display: flex; gap: .5rem; }
+.ui-formulario-acoes button,
+.ui-acoes button {
+  padding: .5rem .9rem;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+.ui-formulario-acoes .ui-botao-secundario { border-color: #d1d5db; background: #fff; color: #1f2937; }
+.ui-formulario-acoes button:disabled { opacity: .6; cursor: not-allowed; }
+
+.ui-tabela {
+  width: 100%;
+  margin-top: 1rem;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ui-tabela th,
+.ui-tabela td { padding: .65rem .8rem; border-bottom: 1px solid #e5e7eb; text-align: left; }
+.ui-tabela th { background: #f3f4f6; font-size: .85rem; }
+.ui-tabela tr:last-child td { border-bottom: 0; }
+.ui-acoes { display: flex; gap: .4rem; }
+.ui-acoes .ui-botao-secundario,
+.ui-acoes .ui-botao-perigo { border-color: #b91c1c; background: #b91c1c; color: #fff; }
+.ui-botao-secundario { background: #fff; color: #1f2937; }
+
+.ui-badge {
+  display: inline-block;
+  padding: .15rem .5rem;
+  border-radius: 999px;
+  background: #e5e7eb;
+  font-size: .8rem;
+}
+.ui-badge-entrada,
+.ui-badge-renda { background: #dcfce7; color: #166534; }
+.ui-badge-saida,
+.ui-badge-cartao_credito { background: #fee2e2; color: #991b1b; }
+.ui-badge-conta { background: #dbeafe; color: #1e40af; }
+
+@media (max-width: 760px) {
+  .layout-cabecalho { align-items: flex-start; }
+  .layout-menu-botao { display: inline-block; }
+  .layout-cabecalho nav {
+    display: none;
+    flex-basis: 100%;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  .layout-cabecalho nav.aberto { display: flex; }
+  .layout-usuario { margin-left: 0; }
+}
