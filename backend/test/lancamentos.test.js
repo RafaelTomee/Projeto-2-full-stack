@@ -1,5 +1,6 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import express from 'express';
 import { pool, query, testarConexao } from '../src/config/db.js';
 import { gerarToken } from '../src/config/jwt.js';
@@ -50,10 +51,13 @@ async function criarCategoria(usuarioId, nome, tipo) {
   return rows[0].id;
 }
 
-async function criarFonte(usuarioId, nome = 'Conta teste') {
+async function criarFonte(usuarioId, nome = 'Conta teste', tipo = 'conta') {
+  const cartao = tipo === 'cartao_credito';
   const { rows } = await query(
-    'INSERT INTO fontes_destinos (usuario_id, nome, tipo) VALUES ($1, $2, $3) RETURNING id',
-    [usuarioId, nome, 'conta'],
+    `INSERT INTO fontes_destinos
+       (usuario_id, nome, tipo, dia_fechamento, dia_vencimento, limite)
+     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+    [usuarioId, nome, tipo, cartao ? 5 : null, cartao ? 12 : null, cartao ? 1000 : null],
   );
   return rows[0].id;
 }
@@ -202,6 +206,130 @@ test('tipo da categoria diferente do tipo do lançamento: 400', opcoes, async ()
 
   assert.equal(resposta.status, 400);
   assert.ok(resposta.corpo.campos.categoriaId);
+});
+
+test('descrição, valor e ids com tipos errados: 400 por campo', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoriaId = await criarCategoria(id, 'Salário', 'entrada');
+  const fonteDestinoId = await criarFonte(id);
+  const base = {
+    tipo: 'entrada',
+    descricao: 'Teste',
+    valor: 10,
+    data: '2026-11-20',
+    categoriaId,
+    fonteDestinoId,
+  };
+
+  for (const descricao of [{ a: 1 }, 123, true]) {
+    const r = await chamar('POST', '/', token, { ...base, descricao });
+    assert.equal(r.status, 400);
+    assert.ok(r.corpo.campos.descricao);
+  }
+  for (const valor of [true, [5], { a: 1 }, 0.004, 1e20]) {
+    const r = await chamar('POST', '/', token, { ...base, valor });
+    assert.equal(r.status, 400, `valor ${JSON.stringify(valor)}`);
+    assert.ok(r.corpo.campos.valor);
+  }
+  for (const campo of ['categoriaId', 'fonteDestinoId']) {
+    for (const valorCampo of [true, [9], { id: 9 }, 1.5]) {
+      const r = await chamar('POST', '/', token, { ...base, [campo]: valorCampo });
+      assert.equal(r.status, 400, `${campo} ${JSON.stringify(valorCampo)}`);
+      assert.ok(r.corpo.campos[campo]);
+    }
+  }
+
+  const numerica = await chamar('POST', '/', token, {
+    ...base,
+    valor: '1234.56',
+    categoriaId: String(categoriaId),
+    fonteDestinoId: String(fonteDestinoId),
+  });
+  assert.equal(numerica.status, 201);
+  assert.equal(numerica.corpo.valor, 1234.56);
+});
+
+test('fonte incompatível com o tipo do lançamento: 400 no campo', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoriaEntrada = await criarCategoria(id, 'Salário', 'entrada');
+  const categoriaSaida = await criarCategoria(id, 'Mercado', 'saida');
+  const cartao = await criarFonte(id, 'Cartão', 'cartao_credito');
+  const renda = await criarFonte(id, 'Salário fonte', 'renda');
+  const base = { descricao: 'Teste', valor: 10, data: '2026-11-20' };
+
+  const entradaCartao = await chamar('POST', '/', token, {
+    ...base,
+    tipo: 'entrada',
+    categoriaId: categoriaEntrada,
+    fonteDestinoId: cartao,
+  });
+  assert.equal(entradaCartao.status, 400);
+  assert.ok(entradaCartao.corpo.campos.fonteDestinoId);
+
+  const saidaRenda = await chamar('POST', '/', token, {
+    ...base,
+    tipo: 'saida',
+    categoriaId: categoriaSaida,
+    fonteDestinoId: renda,
+  });
+  assert.equal(saidaRenda.status, 400);
+  assert.ok(saidaRenda.corpo.campos.fonteDestinoId);
+});
+
+test('editar/excluir parcela afeta o grupo inteiro (com isolamento)', opcoes, async () => {
+  const usuario = await criarUsuario();
+  const outro = await criarUsuario();
+  const categoria = await criarCategoria(usuario.id, 'Cartão compras', 'saida');
+  const novaCategoria = await criarCategoria(usuario.id, 'Outra categoria', 'saida');
+  const cartao = await criarFonte(usuario.id, 'Cartão grupo', 'cartao_credito');
+  const grupo = randomUUID();
+  const ids = [];
+
+  for (let parcela = 1; parcela <= 3; parcela += 1) {
+    const { rows } = await query(
+      `INSERT INTO lancamentos
+         (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id,
+          parcela_atual, total_parcelas, grupo_parcelamento)
+       VALUES ($1, 'saida', $2, $3, $4, $5, $6, $7, 3, $8) RETURNING id`,
+      [usuario.id, `Parcela ${parcela}`, 100, '2026-11-10', categoria, cartao, parcela, grupo],
+    );
+    ids.push(rows[0].id);
+  }
+
+  const corpo = {
+    tipo: 'saida',
+    descricao: 'Compra editada',
+    valor: 100,
+    data: '2026-11-10',
+    categoriaId: novaCategoria,
+    fonteDestinoId: cartao,
+  };
+  const editada = await chamar('PUT', `/${ids[1]}`, usuario.token, corpo);
+  assert.equal(editada.status, 200);
+  for (const id of ids) {
+    const item = (await chamar('GET', `/${id}`, usuario.token)).corpo;
+    assert.equal(item.descricao, 'Compra editada');
+    assert.equal(item.categoriaId, novaCategoria);
+  }
+
+  const valorAlterado = await chamar('PUT', `/${ids[1]}`, usuario.token, {
+    ...corpo,
+    valor: 3000.01,
+  });
+  assert.equal(valorAlterado.status, 409);
+
+  assert.equal((await chamar('DELETE', `/${ids[0]}`, outro.token)).status, 404);
+  assert.equal((await chamar('GET', `/${ids[0]}`, usuario.token)).status, 200);
+
+  assert.equal((await chamar('DELETE', `/${ids[0]}`, usuario.token)).status, 204);
+  for (const id of ids) {
+    assert.equal((await chamar('GET', `/${id}`, usuario.token)).status, 404);
+  }
+});
+
+test('id com byte nulo: 400/404 (não 500)', opcoes, async () => {
+  const { token } = await criarUsuario();
+  assert.ok([400, 404].includes((await chamar('GET', '/%00', token)).status));
 });
 
 test('detalha, edita, exclui e devolve 404 para id de outro usuário', opcoes, async () => {

@@ -70,10 +70,29 @@ export const Lancamento = {
     return publico(rows[0]);
   },
 
+  async atualizarGrupo(grupoId, usuarioId, { descricao, categoriaId }) {
+    const { rows } = await query(
+      `UPDATE lancamentos
+          SET descricao = $3, categoria_id = $4
+        WHERE usuario_id = $1 AND grupo_parcelamento = $2
+        RETURNING ${CAMPOS}`,
+      [usuarioId, grupoId, descricao, categoriaId],
+    );
+    return rows.map(publico);
+  },
+
   async excluir(id, usuarioId) {
     const { rowCount } = await query(
       'DELETE FROM lancamentos WHERE id = $1 AND usuario_id = $2',
       [id, usuarioId],
+    );
+    return rowCount > 0;
+  },
+
+  async excluirGrupo(grupoId, usuarioId) {
+    const { rowCount } = await query(
+      'DELETE FROM lancamentos WHERE usuario_id = $1 AND grupo_parcelamento = $2',
+      [usuarioId, grupoId],
     );
     return rowCount > 0;
   },

@@ -53,6 +53,7 @@ const ERROS_POSTGRES = {
   '22001': [400, 'Dados inválidos.'],                                        // texto maior que a coluna
   '22007': [400, 'Dados inválidos.'],                                        // data em formato inválido
   '22008': [400, 'Dados inválidos.'],                                        // data fora do intervalo
+  '22021': [400, 'Dados inválidos.'],                                        // byte nulo em parâmetro (ex.: id "%00")
 };
 
 // ---------------------------------------------------------------------------
