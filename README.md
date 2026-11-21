@@ -191,6 +191,15 @@ Todas as rotas abaixo de `/api`, exceto cadastro e login, exigem o cabeçalho `A
 | GET | `/api/relatorios/faturas` | Previsão de faturas dos cartões | Planejada |
 | GET | `/api/saude-financeira` | Desafio (opcional) | Planejada |
 
+### Parcelamento em cartão
+
+- `POST /api/lancamentos` com `totalParcelas` entre 2 e 48 cria as parcelas em uma transação (se uma falha, nenhuma é gravada). `totalParcelas` deve ser número inteiro; parcelamento só para `saida` em cartão de crédito e cada parcela deve valer pelo menos R$ 0,01.
+- Cada parcela guarda a **data da compra** (igual ao seed). A data da fatura é calculada pelos dias de fechamento/vencimento do cartão; a modelagem (manter data da compra ou gravar data da fatura) ainda será decidida com o time C.
+- `PUT` numa parcela altera só `descricao` e `categoriaId`. Mudar valor, data, tipo ou fonte responde **409**: exclua e recrie o parcelamento.
+- `DELETE /api/lancamentos/:id?todasParcelas=true` exclui o grupo inteiro. Sem esse parâmetro (ou com qualquer outro valor) exclui apenas a parcela; o valor precisa ser exatamente `true`.
+- `limite` do cartão é informativo: a API não bloqueia compras acima dele (o enunciado não exige esse controle).
+- Por compatibilidade com o contrato atual, `POST` devolve a primeira parcela; devolver `{ parcelas: [...] }` depende de alinhamento com o front e com o C.
+
 ## Padrão de erros da API
 
 Toda resposta de erro segue o mesmo formato, e o front-end trata todas do mesmo jeito:
