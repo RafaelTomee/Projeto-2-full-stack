@@ -69,12 +69,13 @@ async function criarLancamento(usuarioId, categoriaId, fonteDestinoId, dados = {
   return rows[0].id;
 }
 
+// Mesma regra da rota: mês corrrente em data local, não UTC.
+const isoLocal = (data) =>
+  `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}-${String(data.getDate()).padStart(2, '0')}`;
 const agora = new Date();
-const ano = agora.getUTCFullYear();
-const mes = agora.getUTCMonth();
-const inicioMes = new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10);
-const fimMes = new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10);
-const mesAnterior = new Date(Date.UTC(ano, mes - 1, 15)).toISOString().slice(0, 10);
+const inicioMes = isoLocal(new Date(agora.getFullYear(), agora.getMonth(), 1));
+const fimMes = isoLocal(new Date(agora.getFullYear(), agora.getMonth() + 1, 0));
+const mesAnterior = isoLocal(new Date(agora.getFullYear(), agora.getMonth() - 1, 15));
 
 let servidor;
 let base;
@@ -172,6 +173,8 @@ test('filtros inválidos: 400 com campos', opcoes, async () => {
     'categoriaId=abc': 'categoriaId',
     'fonteDestinoId=0': 'fonteDestinoId',
     'pagina=0': 'pagina',
+    'pagina=1e20': 'pagina',
+    'inicio=0000-01-01': 'inicio',
   };
 
   for (const [consulta, campo] of Object.entries(casos)) {

@@ -53,13 +53,20 @@ function dataValida(valor) {
   return !Number.isNaN(data.getTime()) && data.toISOString().slice(0, 10) === texto;
 }
 
+// ISO de AAAA-MM-DD na data local do servidor (não em UTC): toISOString()
+// mudaria o dia/mês perto da meia-noite em fusos como o de Brasília.
+function isoLocal(data) {
+  const ano = data.getFullYear();
+  const mes = String(data.getMonth() + 1).padStart(2, '0');
+  const dia = String(data.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
 function periodoPadrao() {
   const agora = new Date();
-  const ano = agora.getUTCFullYear();
-  const mes = agora.getUTCMonth();
   return {
-    inicio: new Date(Date.UTC(ano, mes, 1)).toISOString().slice(0, 10),
-    fim: new Date(Date.UTC(ano, mes + 1, 0)).toISOString().slice(0, 10),
+    inicio: isoLocal(new Date(agora.getFullYear(), agora.getMonth(), 1)),
+    fim: isoLocal(new Date(agora.getFullYear(), agora.getMonth() + 1, 0)),
   };
 }
 
@@ -77,6 +84,12 @@ function validarFiltros(query) {
   const fimValido = dataValida(fim);
   if (!inicioValido) campos.inicio = 'Informe uma data válida no formato AAAA-MM-DD.';
   if (!fimValido) campos.fim = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (inicioValido && Number(inicio.slice(0, 4)) < 1900) {
+    campos.inicio = 'Informe uma data a partir de 1900.';
+  }
+  if (fimValido && Number(fim.slice(0, 4)) < 1900) {
+    campos.fim = 'Informe uma data a partir de 1900.';
+  }
   if (inicioValido && fimValido && inicio > fim) {
     campos.periodo = 'A data inicial não pode ser posterior à data final.';
   }
@@ -89,7 +102,9 @@ function validarFiltros(query) {
   if (fonteDestinoId !== null && (!Number.isInteger(fonteDestinoId) || fonteDestinoId <= 0)) {
     campos.fonteDestinoId = 'Informe um id de fonte/destino válido.';
   }
-  if (!Number.isInteger(pagina) || pagina < 1) campos.pagina = 'Informe uma página válida.';
+  if (!Number.isInteger(pagina) || pagina < 1 || pagina > 1_000_000) {
+    campos.pagina = 'Informe uma página válida.';
+  }
   if (Object.keys(campos).length > 0) throw erroValidacao(campos);
 
   return { inicio, fim, tipo, categoriaId, fonteDestinoId, pagina };
