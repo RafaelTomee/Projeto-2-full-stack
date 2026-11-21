@@ -187,6 +187,90 @@ test('fonte/destino de outro usuário: 404 e sem vazamento na listagem', opcoes,
   assert.deepEqual((await chamar('GET', '/', usuarioB.token)).corpo, []);
 });
 
+test('nome que não é texto: 400 no campo', opcoes, async () => {
+  const { token } = await criarUsuario();
+  for (const nome of [{ a: 1 }, 123, true, [5]]) {
+    const r = await chamar('POST', '/', token, { nome, tipo: 'conta' });
+    assert.equal(r.status, 400);
+    assert.ok(r.corpo.campos.nome);
+  }
+});
+
+test('limite e dias com tipos errados: 400 por campo', opcoes, async () => {
+  const { token } = await criarUsuario();
+  const base = { nome: 'Cartão tipos', tipo: 'cartao_credito', diaVencimento: 12 };
+
+  for (const limite of [true, [5], 0.004, '1e3']) {
+    const r = await chamar('POST', '/', token, { ...base, diaFechamento: 5, limite });
+    assert.equal(r.status, 400, `limite ${JSON.stringify(limite)}`);
+    assert.ok(r.corpo.campos.limite);
+  }
+  for (const diaFechamento of [true, [5], 'abc', 5.5]) {
+    const r = await chamar('POST', '/', token, { ...base, diaFechamento, limite: 1000 });
+    assert.equal(r.status, 400, `dia ${JSON.stringify(diaFechamento)}`);
+    assert.ok(r.corpo.campos.diaFechamento);
+  }
+  const valida = await chamar('POST', '/', token, {
+    ...base,
+    diaFechamento: '5',
+    limite: '2500.50',
+  });
+  assert.equal(valida.status, 201);
+  assert.equal(valida.corpo.limite, 2500.5);
+});
+
+test('PUT não troca o tipo de fonte com lançamentos: 409 no campo tipo', opcoes, async () => {
+  const { id, token } = await criarUsuario();
+  const categoria = await query(
+    `INSERT INTO categorias (usuario_id, nome, tipo) VALUES ($1, $2, $3) RETURNING id`,
+    [id, 'Categoria tipo fonte', 'saida'],
+  );
+  const cartao = await chamar('POST', '/', token, {
+    nome: 'Cartão vinculado',
+    tipo: 'cartao_credito',
+    diaFechamento: 5,
+    diaVencimento: 12,
+    limite: 1000,
+  });
+  await query(
+    `INSERT INTO lancamentos
+       (usuario_id, tipo, descricao, valor, data, categoria_id, fonte_destino_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [id, 'saida', 'Compra', 100, '2026-11-10', categoria.rows[0].id, cartao.corpo.id],
+  );
+
+  const trocada = await chamar('PUT', `/${cartao.corpo.id}`, token, {
+    nome: 'Cartão vinculado',
+    tipo: 'conta',
+  });
+  assert.equal(trocada.status, 409);
+  assert.ok(trocada.corpo.campos.tipo);
+  assert.equal((await chamar('GET', `/${cartao.corpo.id}`, token)).corpo.tipo, 'cartao_credito');
+
+  const livre = await chamar('POST', '/', token, { nome: 'Renda livre', tipo: 'renda' });
+  const trocadaLivre = await chamar('PUT', `/${livre.corpo.id}`, token, {
+    nome: 'Conta livre',
+    tipo: 'conta',
+  });
+  assert.equal(trocadaLivre.status, 200);
+});
+
+test('unicidade case-insensitive resiste a POSTs simultâneos', opcoes, async () => {
+  const { token } = await criarUsuario();
+  const nomes = ['Conta1', 'CONTA1', 'conta1', 'Conta1', 'CONTA1', 'conta1', 'Conta1', 'CONTA1'];
+  const respostas = await Promise.all(
+    nomes.map((nome) => chamar('POST', '/', token, { nome, tipo: 'conta' })),
+  );
+  assert.equal(respostas.filter((r) => r.status === 201).length, 1);
+  assert.ok(respostas.every((r) => r.status === 201 || r.status === 409));
+  assert.equal((await chamar('GET', '/', token)).corpo.length, 1);
+});
+
+test('id com byte nulo: 400 (não 500)', opcoes, async () => {
+  const { token } = await criarUsuario();
+  assert.equal((await chamar('GET', '/%00', token)).status, 400);
+});
+
 test('exclusão bloqueada quando há lançamento vinculado: 409', opcoes, async () => {
   const { id, token } = await criarUsuario();
   const categoria = await query(

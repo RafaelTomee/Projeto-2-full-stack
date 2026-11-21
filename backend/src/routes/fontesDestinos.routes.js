@@ -8,22 +8,39 @@ const TIPOS = new Set(['renda', 'conta', 'cartao_credito']);
 const NOME_MAX = 60;
 const MSG_DUPLICADO = 'Já existe uma fonte/destino com este nome.';
 const MSG_VINCULO = 'Não é possível excluir esta fonte/destino: existem lançamentos vinculados a ela.';
+const MSG_TIPO_VINCULO = 'Não é possível alterar o tipo desta fonte/destino: existem lançamentos vinculados a ela.';
 
 const conflitoNome = () => conflito(MSG_DUPLICADO, { nome: MSG_DUPLICADO });
 const conflitoVinculo = () => conflito(MSG_VINCULO);
+const conflitoTipo = () => conflito(MSG_TIPO_VINCULO, { tipo: MSG_TIPO_VINCULO });
+
+// Só números (ou strings numéricas simples) entram: true viraria 1 e [5] viraria 5
+// se passassem por Number() direto.
+function numeroValido(valor) {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+  if (typeof valor === 'string' && /^\d+(\.\d{1,2})?$/.test(valor.trim())) return Number(valor.trim());
+  return null;
+}
 
 function diaValido(valor) {
-  const dia = Number(valor);
-  return Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : null;
+  const dia = numeroValido(valor);
+  return dia !== null && Number.isInteger(dia) && dia >= 1 && dia <= 31 ? dia : null;
 }
 
 function validarCorpo(corpo) {
   const campos = {};
-  const nome = String(corpo?.nome ?? '').trim();
+  let nome = '';
   const tipo = corpo?.tipo;
 
-  if (!nome) campos.nome = 'O nome é obrigatório.';
-  else if (nome.length > NOME_MAX) campos.nome = `O nome deve ter no máximo ${NOME_MAX} caracteres.`;
+  if (corpo?.nome === undefined || corpo?.nome === null) {
+    campos.nome = 'O nome é obrigatório.';
+  } else if (typeof corpo.nome !== 'string') {
+    campos.nome = 'O nome deve ser um texto.';
+  } else {
+    nome = corpo.nome.trim();
+    if (!nome) campos.nome = 'O nome é obrigatório.';
+    else if (nome.length > NOME_MAX) campos.nome = `O nome deve ter no máximo ${NOME_MAX} caracteres.`;
+  }
   if (!TIPOS.has(tipo)) campos.tipo = "O tipo deve ser 'renda', 'conta' ou 'cartao_credito'.";
 
   let diaFechamento = null;
@@ -33,14 +50,13 @@ function validarCorpo(corpo) {
   if (tipo === 'cartao_credito') {
     diaFechamento = diaValido(corpo?.diaFechamento);
     diaVencimento = diaValido(corpo?.diaVencimento);
-    limite = Number(corpo?.limite);
+    const limiteInformado = numeroValido(corpo?.limite);
+    limite = limiteInformado === null ? null : Math.round(limiteInformado * 100) / 100;
 
     if (diaFechamento === null) campos.diaFechamento = 'Informe o dia de fechamento (1 a 31).';
     if (diaVencimento === null) campos.diaVencimento = 'Informe o dia de vencimento (1 a 31).';
-    if (!Number.isFinite(limite) || limite <= 0) {
+    if (limite === null || limite <= 0) {
       campos.limite = 'Informe um limite maior que zero.';
-    } else {
-      limite = Math.round(limite * 100) / 100;
     }
   }
 
@@ -92,6 +108,9 @@ router.put('/:id', autenticar, async (req, res, next) => {
     const dados = validarCorpo(req.body);
     const atual = await FonteDestino.buscarPorId(req.params.id, req.usuarioId);
     if (!atual) throw naoEncontrado('Fonte/destino não encontrado.');
+    if (atual.tipo !== dados.tipo && (await FonteDestino.temLancamentos(atual.id, req.usuarioId))) {
+      throw conflitoTipo();
+    }
     if (await FonteDestino.existeComNome(req.usuarioId, dados.nome, atual.id)) {
       throw conflitoNome();
     }
