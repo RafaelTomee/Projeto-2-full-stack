@@ -228,3 +228,21 @@ test('isolamento: lançamentos de outro usuário não entram na listagem', opcoe
   assert.ok(!ids.includes(alheio));
   assert.deepEqual(resposta.corpo.totais, { entradas: 5, saidas: 0, saldo: 5 });
 });
+
+test('filtro com categoria/fonte de outro usuário devolve vazio com totais zerados', opcoes, async () => {
+  const usuario = await criarUsuario();
+  const outro = await criarUsuario();
+  const categoria = await criarCategoria(usuario.id, 'Minha', 'entrada');
+  const fonte = await criarFonte(usuario.id);
+  const categoriaAlheia = await criarCategoria(outro.id, 'Alheia', 'entrada');
+  const fonteAlheia = await criarFonte(outro.id, 'Conta alheia');
+  await criarLancamento(usuario.id, categoria, fonte, { valor: 10, data: inicioMes });
+
+  for (const filtro of [`categoriaId=${categoriaAlheia}`, `fonteDestinoId=${fonteAlheia}`]) {
+    const resposta = await chamar(`/?${filtro}`, usuario.token);
+    assert.equal(resposta.status, 200, filtro);
+    assert.equal(resposta.corpo.lancamentos.length, 0, filtro);
+    assert.equal(resposta.corpo.totalRegistros, 0, filtro);
+    assert.deepEqual(resposta.corpo.totais, { entradas: 0, saidas: 0, saldo: 0 }, filtro);
+  }
+});
