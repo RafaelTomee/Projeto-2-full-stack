@@ -6,7 +6,9 @@ export default function ModalConfirmacao({
   mensagem,
   confirmarTexto = 'Confirmar',
   cancelarTexto = 'Cancelar',
+  acaoExtraTexto,
   onConfirmar,
+  onAcaoExtra,
   onCancelar,
 }) {
   const tituloId = useId();
@@ -39,6 +41,11 @@ export default function ModalConfirmacao({
           <button type="button" className="ui-botao-perigo" onClick={onConfirmar}>
             {confirmarTexto}
           </button>
+          {acaoExtraTexto && onAcaoExtra && (
+            <button type="button" className="ui-botao-secundario" onClick={onAcaoExtra}>
+              {acaoExtraTexto}
+            </button>
+          )}
         </div>
       </div>
     </div>

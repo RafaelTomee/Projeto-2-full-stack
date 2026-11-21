@@ -189,6 +189,55 @@
 .ui-badge-cartao_credito { background: #fee2e2; color: #991b1b; }
 .ui-badge-conta { background: #dbeafe; color: #1e40af; }
 
+.ui-filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: .75rem;
+  align-items: end;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+.ui-filtros label { display: block; margin-bottom: .25rem; font-size: .85rem; }
+.ui-filtros input,
+.ui-filtros select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: .5rem .6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font: inherit;
+}
+.ui-filtros button { padding: .55rem .8rem; }
+
+.ui-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+.ui-card {
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+.ui-card span { font-size: .85rem; color: #6b7280; }
+.ui-card strong { font-size: 1.35rem; }
+.ui-card-entradas strong { color: #166534; }
+.ui-card-saidas strong { color: #991b1b; }
+.ui-card-saldo strong { color: #1e40af; }
+
+.ui-paginacao { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+.ui-paginacao span { margin-right: auto; color: #6b7280; font-size: .9rem; }
+.ui-paginacao button:disabled { opacity: .5; cursor: not-allowed; }
+.ui-dica { margin: .25rem 0 0; color: #6b7280; font-size: .85rem; }
+
 @media (max-width: 760px) {
   .layout-cabecalho { align-items: flex-start; }
   .layout-menu-botao { display: inline-block; }
@@ -200,4 +249,5 @@
   }
   .layout-cabecalho nav.aberto { display: flex; }
   .layout-usuario { margin-left: 0; }
+  .ui-paginacao { flex-wrap: wrap; }
 }
