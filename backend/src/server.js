@@ -5,6 +5,7 @@ import { testarConexao } from './config/db.js';
 import { exigirSegredoJwt } from './config/jwt.js';
 import { rotaNaoEncontrada, tratarErros } from './middlewares/erros.js';
 import authRoutes from './routes/auth.routes.js';
+import lancamentosRoutes from './routes/lancamentos.routes.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -21,7 +22,7 @@ app.use('/api/auth', authRoutes);
 // Cada pessoa descomenta/cria a sua linha aqui (uma por linha, para evitar conflito no Git):
 // app.use('/api/categorias', categoriasRoutes);              // Pessoa B
 // app.use('/api/fontes-destinos', fontesDestinosRoutes);     // Pessoa B
-// app.use('/api/lancamentos', lancamentosRoutes);            // Pessoa B
+app.use('/api/lancamentos', lancamentosRoutes);
 // app.use('/api/relatorios', relatoriosRoutes);              // Pessoa C
 // app.use('/api/saude-financeira', saudeFinanceiraRoutes);   // Pessoa C (desafio)
 
