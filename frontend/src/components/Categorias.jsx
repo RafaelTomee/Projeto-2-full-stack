@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, extrairErro } from '../services/api.js'
 import { categoriaParaFormulario, categoriaParaPayload } from '../utils/formularios.js'
 import { Loading, MensagemErro, ModalConfirmacao, Vazio } from './ui/index.js'
@@ -16,11 +16,25 @@ export default function Categorias() {
   const [erroSalvar, setErroSalvar] = useState(null)
   const [excluindo, setExcluindo] = useState(null)
   const [erroExcluir, setErroExcluir] = useState(null)
+  const [excluindoEmAndamento, setExcluindoEmAndamento] = useState(false)
+  const nomeRef = useRef(null)
+  const editandoRef = useRef(null)
+
+  useEffect(() => {
+    editandoRef.current = editando
+  }, [editando])
 
   const carregar = useCallback(async () => {
     try {
       const { data } = await api.get('/categorias')
       setCategorias(data)
+      // Se o item em edição foi excluído, não deixa o form em modo edição.
+      if (editandoRef.current && !data.some((item) => item.id === editandoRef.current)) {
+        setFormulario(categoriaParaFormulario())
+        setEditando(null)
+        setErrosCampo({})
+        setErroSalvar(null)
+      }
       setErroCarregar(null)
     } catch (erro) {
       setErroCarregar(extrairErro(erro))
@@ -75,17 +89,25 @@ export default function Categorias() {
     setEditando(categoria.id)
     setErrosCampo({})
     setErroSalvar(null)
+    requestAnimationFrame(() => {
+      nomeRef.current?.scrollIntoView({ block: 'center' })
+      nomeRef.current?.focus()
+    })
   }
 
   const confirmarExclusao = async () => {
-    if (!excluindo) return
+    if (!excluindo || excluindoEmAndamento) return
+    setExcluindoEmAndamento(true)
     setErroExcluir(null)
     try {
       await api.delete(`/categorias/${excluindo.id}`)
       setExcluindo(null)
       await recarregar()
     } catch (erro) {
+      // Mantém o modal aberto e mostra o erro dentro dele (409 por vínculo).
       setErroExcluir(extrairErro(erro).mensagem)
+    } finally {
+      setExcluindoEmAndamento(false)
     }
   }
 
@@ -99,13 +121,17 @@ export default function Categorias() {
         <div>
           <label htmlFor="categoria-nome">Nome</label>
           <input
+            ref={nomeRef}
             id="categoria-nome"
             value={formulario.nome}
             onChange={(evento) => alterar('nome', evento.target.value)}
             aria-invalid={Boolean(errosCampo.nome)}
+            aria-describedby={errosCampo.nome ? 'categoria-nome-erro' : undefined}
             maxLength={60}
           />
-          {errosCampo.nome && <p className="erro-campo">{errosCampo.nome}</p>}
+          {errosCampo.nome && (
+            <p id="categoria-nome-erro" className="erro-campo">{errosCampo.nome}</p>
+          )}
         </div>
         <div>
           <label htmlFor="categoria-tipo">Tipo</label>
@@ -114,11 +140,14 @@ export default function Categorias() {
             value={formulario.tipo}
             onChange={(evento) => alterar('tipo', evento.target.value)}
             aria-invalid={Boolean(errosCampo.tipo)}
+            aria-describedby={errosCampo.tipo ? 'categoria-tipo-erro' : undefined}
           >
             <option value="entrada">Entrada</option>
             <option value="saida">Saída</option>
           </select>
-          {errosCampo.tipo && <p className="erro-campo">{errosCampo.tipo}</p>}
+          {errosCampo.tipo && (
+            <p id="categoria-tipo-erro" className="erro-campo">{errosCampo.tipo}</p>
+          )}
         </div>
         <div className="ui-formulario-acoes">
           <button type="submit" disabled={salvando}>
@@ -132,8 +161,9 @@ export default function Categorias() {
         </div>
       </form>
 
-      {erroSalvar && <MensagemErro mensagem={erroSalvar} />}
-      {erroExcluir && <MensagemErro mensagem={erroExcluir} />}
+      {erroSalvar && Object.keys(errosCampo).length === 0 && (
+        <MensagemErro mensagem={erroSalvar} />
+      )}
 
       {carregando ? (
         <Loading mensagem="Carregando categorias..." />
@@ -145,6 +175,7 @@ export default function Categorias() {
       ) : categorias.length === 0 ? (
         <Vazio mensagem="Nenhuma categoria cadastrada." />
       ) : (
+        <div className="ui-tabela-rolavel">
         <table className="ui-tabela">
           <thead>
             <tr>
@@ -179,6 +210,7 @@ export default function Categorias() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <ModalConfirmacao
@@ -186,6 +218,8 @@ export default function Categorias() {
         titulo="Excluir categoria"
         mensagem={`Tem certeza que deseja excluir "${excluindo?.nome ?? ''}"?`}
         confirmarTexto="Excluir"
+        erro={erroExcluir}
+        carregando={excluindoEmAndamento}
         onConfirmar={confirmarExclusao}
         onCancelar={() => setExcluindo(null)}
       />

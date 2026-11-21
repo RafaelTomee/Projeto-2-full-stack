@@ -35,6 +35,18 @@ test('fonte: campos extras da API só aparecem para cartão', () => {
     reserva: false,
   });
 
+  assert.equal(
+    fonteParaFormulario({
+      id: 4,
+      nome: 'Cartão camel',
+      tipo: 'cartao_credito',
+      diaFechamento: 7,
+      diaVencimento: 15,
+      limite: 100,
+    }).diaFechamento,
+    7,
+  );
+
   assert.deepEqual(fonteParaFormulario({ id: 2, nome: 'Conta', tipo: 'conta' }), {
     id: 2,
     nome: 'Conta',

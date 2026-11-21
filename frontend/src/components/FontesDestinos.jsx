@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, extrairErro } from '../services/api.js'
 import { formatarMoeda } from '../utils/formatacao.js'
 import { fonteParaFormulario, fonteParaPayload } from '../utils/formularios.js'
@@ -18,11 +18,24 @@ export default function FontesDestinos() {
   const [erroSalvar, setErroSalvar] = useState(null)
   const [excluindo, setExcluindo] = useState(null)
   const [erroExcluir, setErroExcluir] = useState(null)
+  const [excluindoEmAndamento, setExcluindoEmAndamento] = useState(false)
+  const nomeRef = useRef(null)
+  const editandoRef = useRef(null)
+
+  useEffect(() => {
+    editandoRef.current = editando
+  }, [editando])
 
   const carregar = useCallback(async () => {
     try {
       const { data } = await api.get('/fontes-destinos')
       setFontes(data)
+      if (editandoRef.current && !data.some((item) => item.id === editandoRef.current)) {
+        setFormulario(fonteParaFormulario())
+        setEditando(null)
+        setErrosCampo({})
+        setErroSalvar(null)
+      }
       setErroCarregar(null)
     } catch (erro) {
       setErroCarregar(extrairErro(erro))
@@ -77,10 +90,15 @@ export default function FontesDestinos() {
     setEditando(fonte.id)
     setErrosCampo({})
     setErroSalvar(null)
+    requestAnimationFrame(() => {
+      nomeRef.current?.scrollIntoView({ block: 'center' })
+      nomeRef.current?.focus()
+    })
   }
 
   const confirmarExclusao = async () => {
-    if (!excluindo) return
+    if (!excluindo || excluindoEmAndamento) return
+    setExcluindoEmAndamento(true)
     setErroExcluir(null)
     try {
       await api.delete(`/fontes-destinos/${excluindo.id}`)
@@ -88,6 +106,8 @@ export default function FontesDestinos() {
       await recarregar()
     } catch (erro) {
       setErroExcluir(extrairErro(erro).mensagem)
+    } finally {
+      setExcluindoEmAndamento(false)
     }
   }
 
@@ -103,13 +123,17 @@ export default function FontesDestinos() {
         <div>
           <label htmlFor="fonte-nome">Nome</label>
           <input
+            ref={nomeRef}
             id="fonte-nome"
             value={formulario.nome}
             onChange={(evento) => alterar('nome', evento.target.value)}
             aria-invalid={Boolean(errosCampo.nome)}
+            aria-describedby={errosCampo.nome ? 'fonte-nome-erro' : undefined}
             maxLength={60}
           />
-          {errosCampo.nome && <p className="erro-campo">{errosCampo.nome}</p>}
+          {errosCampo.nome && (
+            <p id="fonte-nome-erro" className="erro-campo">{errosCampo.nome}</p>
+          )}
         </div>
         <div>
           <label htmlFor="fonte-tipo">Tipo</label>
@@ -118,12 +142,15 @@ export default function FontesDestinos() {
             value={formulario.tipo}
             onChange={(evento) => alterar('tipo', evento.target.value)}
             aria-invalid={Boolean(errosCampo.tipo)}
+            aria-describedby={errosCampo.tipo ? 'fonte-tipo-erro' : undefined}
           >
             {TIPOS.map((tipo) => (
               <option key={tipo} value={tipo}>{ROTULOS[tipo]}</option>
             ))}
           </select>
-          {errosCampo.tipo && <p className="erro-campo">{errosCampo.tipo}</p>}
+          {errosCampo.tipo && (
+            <p id="fonte-tipo-erro" className="erro-campo">{errosCampo.tipo}</p>
+          )}
         </div>
 
         {ehCartao && (
@@ -138,8 +165,11 @@ export default function FontesDestinos() {
                 value={formulario.diaFechamento ?? ''}
                 onChange={(evento) => alterar('diaFechamento', evento.target.value)}
                 aria-invalid={Boolean(errosCampo.diaFechamento)}
+                aria-describedby={errosCampo.diaFechamento ? 'fonte-fechamento-erro' : undefined}
               />
-              {errosCampo.diaFechamento && <p className="erro-campo">{errosCampo.diaFechamento}</p>}
+              {errosCampo.diaFechamento && (
+                <p id="fonte-fechamento-erro" className="erro-campo">{errosCampo.diaFechamento}</p>
+              )}
             </div>
             <div>
               <label htmlFor="fonte-vencimento">Dia do vencimento</label>
@@ -151,8 +181,11 @@ export default function FontesDestinos() {
                 value={formulario.diaVencimento ?? ''}
                 onChange={(evento) => alterar('diaVencimento', evento.target.value)}
                 aria-invalid={Boolean(errosCampo.diaVencimento)}
+                aria-describedby={errosCampo.diaVencimento ? 'fonte-vencimento-erro' : undefined}
               />
-              {errosCampo.diaVencimento && <p className="erro-campo">{errosCampo.diaVencimento}</p>}
+              {errosCampo.diaVencimento && (
+                <p id="fonte-vencimento-erro" className="erro-campo">{errosCampo.diaVencimento}</p>
+              )}
             </div>
             <CampoMoeda
               label="Limite"
@@ -175,8 +208,9 @@ export default function FontesDestinos() {
         </div>
       </form>
 
-      {erroSalvar && <MensagemErro mensagem={erroSalvar} />}
-      {erroExcluir && <MensagemErro mensagem={erroExcluir} />}
+      {erroSalvar && Object.keys(errosCampo).length === 0 && (
+        <MensagemErro mensagem={erroSalvar} />
+      )}
 
       {carregando ? (
         <Loading mensagem="Carregando fontes e destinos..." />
@@ -188,13 +222,13 @@ export default function FontesDestinos() {
       ) : fontes.length === 0 ? (
         <Vazio mensagem="Nenhuma fonte ou destino cadastrado." />
       ) : (
+        <div className="ui-tabela-rolavel">
         <table className="ui-tabela">
           <thead>
             <tr>
               <th>Nome</th>
               <th>Tipo</th>
               <th>Detalhes</th>
-              <th>Reserva</th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -209,10 +243,9 @@ export default function FontesDestinos() {
                 </td>
                 <td>
                   {fonte.tipo === 'cartao_credito'
-                    ? `Fecha ${fonte.dia_fechamento}/${fonte.dia_vencimento} · Limite ${formatarMoeda(fonte.limite)}`
+                    ? `Fecha dia ${fonte.diaFechamento ?? fonte.dia_fechamento} · Vence dia ${fonte.diaVencimento ?? fonte.dia_vencimento} · Limite ${formatarMoeda(fonte.limite)}`
                     : '—'}
                 </td>
-                <td>{fonte.reserva ? 'Sim' : 'Não'}</td>
                 <td className="ui-acoes">
                   <button type="button" onClick={() => aoEditar(fonte)}>Editar</button>
                   <button
@@ -230,6 +263,7 @@ export default function FontesDestinos() {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       <ModalConfirmacao
@@ -237,6 +271,8 @@ export default function FontesDestinos() {
         titulo="Excluir fonte/destino"
         mensagem={`Tem certeza que deseja excluir "${excluindo?.nome ?? ''}"?`}
         confirmarTexto="Excluir"
+        erro={erroExcluir}
+        carregando={excluindoEmAndamento}
         onConfirmar={confirmarExclusao}
         onCancelar={() => setExcluindo(null)}
       />

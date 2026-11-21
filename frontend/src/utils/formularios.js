@@ -21,8 +21,9 @@ export function fonteParaFormulario(fonte = {}) {
     id: fonte.id ?? null,
     nome: fonte.nome ?? '',
     tipo: fonte.tipo ?? 'conta',
-    diaFechamento: cartao ? Number(fonte.dia_fechamento ?? 0) : null,
-    diaVencimento: cartao ? Number(fonte.dia_vencimento ?? 0) : null,
+    // Aceita tanto a API legada (snake_case) quanto a padronizada (camelCase).
+    diaFechamento: cartao ? Number(fonte.diaFechamento ?? fonte.dia_fechamento ?? 0) : null,
+    diaVencimento: cartao ? Number(fonte.diaVencimento ?? fonte.dia_vencimento ?? 0) : null,
     limite: cartao ? Number(fonte.limite ?? 0) : 0,
     reserva: Boolean(fonte.reserva),
   };

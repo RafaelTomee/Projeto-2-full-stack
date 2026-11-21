@@ -114,6 +114,8 @@
 .ui-botao-primario:disabled,
 .ui-botao-perigo:disabled { opacity: .6; cursor: not-allowed; }
 
+.ui-tabela-rolavel { overflow-x: auto; max-width: 100%; }
+
 .campo-moeda label { display: block; margin-bottom: .25rem; font-size: .9rem; }
 .campo-moeda input {
   width: 100%;
