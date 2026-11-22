@@ -236,3 +236,15 @@ Registre a rota em `backend/src/server.js`, acima de `rotaNaoEncontrada` e `trat
 4. Pull Request para a `dev` com `Closes #N` na descrição; outro integrante revisa antes do merge.
 5. A `dev` é integrada à `main` nos marcos do projeto, por Pull Request.
 6. Sem commit direto na `main` ou na `dev`.
+
+## Saúde financeira
+
+A rota `GET /api/saude-financeira` exige autenticação. O back-end calcula os indicadores com os lançamentos do usuário autenticado e usa o horário de Brasília para determinar o mês de referência.
+
+- **Taxa de poupança:** diferença entre receitas e despesas do mês, dividida pelas receitas e expressa em percentual. Abaixo de 10%, a API sugere revisar as despesas.
+- **Comprometimento com cartões:** despesas registradas no cartão no mês, divididas pelas receitas e expressas em percentual. Acima de 30%, a API sugere revisar os gastos no cartão.
+- **Parcelas futuras:** soma das saídas parceladas registradas para os próximos três meses.
+- **Projeção de saldo:** parte do saldo líquido do mês atual e acumula as entradas e saídas já registradas para cada um dos próximos três meses. Se algum saldo projetado ficar abaixo de zero, a API retorna `temSaldoNegativo: true` e sugere conferir as entradas e contas desses meses.
+- **Mês sem receitas:** a API retorna `null` nos dois indicadores percentuais e sugere registrar as entradas.
+
+Os limites de 10% e 30% são critérios educativos do projeto. As informações não constituem recomendação financeira profissional.
