@@ -2,8 +2,36 @@ import { Router } from 'express';
 import { autenticar } from '../middlewares/autenticar.js';
 import { erroValidacao } from '../middlewares/erros.js';
 import { preverFaturas } from '../models/Fatura.js';
+import { consultarRelatorioFonteDestino } from '../models/RelatorioFonteDestino.js';
 
 const router = Router();
+
+function dataValida(valor) {
+  if (typeof valor !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+    return false;
+  }
+
+  const data = new Date(`${valor}T00:00:00Z`);
+  return Number.isFinite(data.getTime())
+    && data.getUTCFullYear() >= 1900
+    && data.toISOString().slice(0, 10) === valor;
+}
+
+router.get('/fontes-destinos', autenticar, async (req, res) => {
+  const { inicio, fim } = req.query;
+  const campos = {};
+
+  if (!dataValida(inicio)) campos.inicio = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (!dataValida(fim)) campos.fim = 'Informe uma data válida no formato AAAA-MM-DD.';
+  if (Object.keys(campos).length > 0) throw erroValidacao(campos);
+
+  if (inicio > fim) {
+    throw erroValidacao({ fim: 'A data final deve ser igual ou posterior à inicial.' });
+  }
+
+  const fontesDestinos = await consultarRelatorioFonteDestino(req.usuarioId, inicio, fim);
+  res.json({ inicio, fim, fontesDestinos });
+});
 
 router.get('/faturas', autenticar, async (req, res) => {
   const valor = req.query.meses ?? '3';
