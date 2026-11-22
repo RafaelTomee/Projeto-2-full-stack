@@ -7,25 +7,44 @@ export async function consultarSaudeFinanceira(usuarioId) {
   const { rows } = await query(`
     WITH referencia AS (
       SELECT date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date AS mes
+    ),
+    movimentos AS (
+      SELECT
+        l.tipo,
+        l.valor,
+        l.total_parcelas,
+        f.tipo = 'cartao_credito' AS cartao,
+        CASE
+          WHEN l.tipo = 'saida' AND f.tipo = 'cartao_credito' THEN
+            date_trunc('month', l.data::timestamp) + make_interval(months =>
+              l.parcela_atual - 1
+              + CASE WHEN extract(day FROM l.data) > f.dia_fechamento THEN 1 ELSE 0 END
+              + CASE WHEN f.dia_vencimento <= f.dia_fechamento THEN 1 ELSE 0 END
+            )
+          ELSE date_trunc('month', l.data::timestamp)
+        END AS mes
+      FROM lancamentos l
+      JOIN fontes_destinos f ON f.id = l.fonte_destino_id
+        AND f.usuario_id = l.usuario_id
+      CROSS JOIN referencia r
+      WHERE l.usuario_id = $1
+        AND l.data < r.mes + interval '4 months'
     )
     SELECT
       to_char(periodo.mes, 'YYYY-MM') AS mes,
-      COALESCE(SUM(l.valor) FILTER (WHERE l.tipo = 'entrada'), 0) AS receitas,
-      COALESCE(SUM(l.valor) FILTER (WHERE l.tipo = 'saida'), 0) AS despesas,
-      COALESCE(SUM(l.valor) FILTER (
-        WHERE l.tipo = 'saida' AND f.tipo = 'cartao_credito'
+      COALESCE(SUM(m.valor) FILTER (WHERE m.tipo = 'entrada'), 0) AS receitas,
+      COALESCE(SUM(m.valor) FILTER (WHERE m.tipo = 'saida'), 0) AS despesas,
+      COALESCE(SUM(m.valor) FILTER (
+        WHERE m.tipo = 'saida' AND m.cartao
       ), 0) AS cartao,
-      COALESCE(SUM(l.valor) FILTER (
-        WHERE l.tipo = 'saida' AND l.total_parcelas > 1
+      COALESCE(SUM(m.valor) FILTER (
+        WHERE m.tipo = 'saida' AND m.cartao AND m.total_parcelas > 1
       ), 0) AS parcelas
     FROM referencia r
     CROSS JOIN LATERAL generate_series(
       r.mes::timestamp, r.mes + interval '3 months', interval '1 month'
     ) AS periodo(mes)
-    LEFT JOIN lancamentos l ON l.usuario_id = $1
-      AND l.data >= periodo.mes
-      AND l.data < periodo.mes + interval '1 month'
-    LEFT JOIN fontes_destinos f ON f.id = l.fonte_destino_id AND f.usuario_id = $1
+    LEFT JOIN movimentos m ON m.mes = periodo.mes
     GROUP BY periodo.mes
     ORDER BY periodo.mes
   `, [usuarioId]);
