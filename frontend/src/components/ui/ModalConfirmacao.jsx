@@ -10,10 +10,14 @@ export default function ModalConfirmacao({
   erro,
   confirmarTexto = 'Confirmar',
   cancelarTexto = 'Cancelar',
+  acaoExtraTexto,
   onConfirmar,
+  onAcaoExtra,
   onCancelar,
   carregando = false,
   perigo = true,
+  neutro = false,
+  acaoExtraPerigo = false,
 }) {
   const tituloId = useId();
   const modalRef = useRef(null);
@@ -21,12 +25,14 @@ export default function ModalConfirmacao({
   const anteriorRef = useRef(null);
   const onCancelarRef = useRef(onCancelar);
   const onConfirmarRef = useRef(onConfirmar);
+  const onAcaoExtraRef = useRef(onAcaoExtra);
   const carregandoRef = useRef(carregando);
   const iniciadoRef = useRef(false);
 
   useEffect(() => {
     onCancelarRef.current = onCancelar;
     onConfirmarRef.current = onConfirmar;
+    onAcaoExtraRef.current = onAcaoExtra;
     carregandoRef.current = carregando;
   });
 
@@ -78,10 +84,12 @@ export default function ModalConfirmacao({
 
   if (!aberto) return null;
 
-  const confirmar = () => {
+  // Vale para as duas ações (ex.: "Só esta" e "Todas as parcelas"): um único
+  // clique, mesmo com duplo clique rápido, dispara no máximo uma requisição.
+  const executar = (acao) => {
     if (carregando || iniciadoRef.current) return;
     iniciadoRef.current = true;
-    Promise.resolve(onConfirmarRef.current?.()).finally(() => {
+    Promise.resolve(acao?.()).finally(() => {
       iniciadoRef.current = false;
     });
   };
@@ -116,12 +124,24 @@ export default function ModalConfirmacao({
           </button>
           <button
             type="button"
-            className={perigo ? 'ui-botao-perigo' : 'ui-botao-primario'}
-            onClick={confirmar}
+            className={
+              neutro ? 'ui-botao-secundario' : perigo ? 'ui-botao-perigo' : 'ui-botao-primario'
+            }
+            onClick={() => executar(onConfirmarRef.current)}
             disabled={carregando}
           >
             {confirmarTexto}
           </button>
+          {acaoExtraTexto && onAcaoExtra && (
+            <button
+              type="button"
+              className={acaoExtraPerigo ? 'ui-botao-perigo' : 'ui-botao-secundario'}
+              onClick={() => executar(onAcaoExtraRef.current)}
+              disabled={carregando}
+            >
+              {acaoExtraTexto}
+            </button>
+          )}
         </div>
       </div>
     </div>
