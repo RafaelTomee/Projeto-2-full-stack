@@ -39,8 +39,8 @@ router.get('/categorias', autenticar, async (req, res) => {
 
 router.get('/fontes-destinos', autenticar, async (req, res) => {
   const { inicio, fim } = validarPeriodo(req.query);
-  const fontesDestinos = await consultarRelatorioFonteDestino(req.usuarioId, inicio, fim);
-  res.json({ inicio, fim, fontesDestinos });
+  const relatorio = await consultarRelatorioFonteDestino(req.usuarioId, inicio, fim);
+  res.json({ inicio, fim, ...relatorio });
 });
 
 router.get('/faturas', autenticar, async (req, res) => {
