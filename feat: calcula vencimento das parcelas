@@ -1,0 +1,21 @@
+function diaDoMes(ano, mes, dia) {
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(ano, mes, Math.min(dia, ultimoDia)));
+}
+
+export function calcularFatura({
+  dataCompra,
+  diaFechamento,
+  diaVencimento,
+  parcelaAtual = 1,
+}) {
+  const [ano, mes, dia] = dataCompra.split('-').map(Number);
+  const mesCompra = mes - 1;
+  const fechamento = diaDoMes(ano, mesCompra, diaFechamento);
+
+  const mesFechamento = mesCompra + (dia > fechamento.getUTCDate() ? 1 : 0);
+  const mesesAteVencimento = diaVencimento <= diaFechamento ? 1 : 0;
+  const mesParcela = mesFechamento + mesesAteVencimento + parcelaAtual - 1;
+
+  return diaDoMes(ano, mesParcela, diaVencimento).toISOString().slice(0, 10);
+}
