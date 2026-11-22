@@ -29,9 +29,8 @@ const NOME_BANCO = `financas_rf3_${process.pid}`;
 const SEGREDO = 'segredo-do-teste-rf3-bem-longo-0123456789';
 const EXIGIR_TUDO = process.env.RF3_COMPLETO === '1';
 const ROTA_AUSENTE = 'Rota não encontrada.';
-// Rotas que o enunciado NÃO exige (ficam de fora do RF3_COMPLETO): detalhe de categoria/fonte e o desafio.
+// Rotas que o enunciado NÃO exige (ficam de fora do RF3_COMPLETO): detalhe de categoria/fonte.
 const OPCIONAIS = ['categorias:GET', 'fontes-destinos:GET'];
-const caminhoOpcional = (caminho) => caminho.startsWith('/api/saude-financeira');
 
 // ---------------------------------------------------------------------------
 // CORPOS: formato das requisições de escrita (nomes de campo do enunciado, seção 10.6).
@@ -301,7 +300,7 @@ test('sem token: TODAS as rotas protegidas respondem 401', async (t) => {
   for (const rota of rotasProtegidas()) {
     const r = await chamar(rota.metodo, rota.caminho, { corpo: rota.corpo });
     if (ausente(r)) {
-      if (EXIGIR_TUDO && !caminhoOpcional(rota.caminho)) assert.fail(`RF3_COMPLETO=1: a rota ${rota.metodo} ${rota.caminho} não existe`);
+      if (EXIGIR_TUDO) assert.fail(`RF3_COMPLETO=1: a rota ${rota.metodo} ${rota.caminho} não existe`);
       ignoradas.push(`${rota.metodo} ${rota.caminho.split('?')[0]}`);
       continue;
     }
@@ -428,7 +427,7 @@ test('relatórios de A não incluem nada de B (por categoria, por fonte/destino 
   for (const caminho of relatorios) {
     const doB = await chamar('GET', caminho, { token: B.token });
     if (ausente(doB)) {
-      if (EXIGIR_TUDO && !caminhoOpcional(caminho)) assert.fail(`RF3_COMPLETO=1: GET ${caminho.split('?')[0]} não existe`);
+      if (EXIGIR_TUDO) assert.fail(`RF3_COMPLETO=1: GET ${caminho.split('?')[0]} não existe`);
       t.diagnostic(`IGNORADO: GET ${caminho.split('?')[0]} ainda não existe`);
       continue;
     }
@@ -436,7 +435,14 @@ test('relatórios de A não incluem nada de B (por categoria, por fonte/destino 
     assert.ok(doA.status < 500 && doB.status < 500, `${caminho}: erro do servidor`);
     assert.equal(doA.texto.includes('RF3-SEGREDO-B'), false, `${caminho}: o relatório de A vazou dados de B`);
     assert.equal(doA.texto.includes('987654'), false, `${caminho}: o relatório de A vazou valores de B`);
-    if (!caminho.includes('saude-financeira')) {
+    assert.equal(doA.status, 200, caminho);
+    assert.equal(doB.status, 200, caminho);
+    assert.equal(/senha_hash/i.test(doA.texto + doB.texto), false, caminho);
+    if (caminho.includes('saude-financeira')) {
+      const tentativa = await chamar('GET', `${caminho}?usuarioId=${B.id}&usuario_id=${B.id}`, { token: A.token });
+      assert.equal(tentativa.status, 200);
+      assert.deepEqual(tentativa.json, doA.json);
+    } else {
       assert.ok(doB.texto.includes('RF3-SEGREDO-B'), `${caminho}: controle positivo, o relatório de B deveria mostrar os dados de B`);
     }
   }
