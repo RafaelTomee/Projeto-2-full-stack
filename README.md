@@ -21,10 +21,10 @@ As tarefas e seus checklists ficam nas [issues do repositório](https://github.c
 | Autenticação | Cadastro, login, consulta do usuário autenticado e rotas protegidas |
 | Categorias e fontes/destinos | Cadastro, consulta, edição e exclusão |
 | Lançamentos | Entradas e saídas, filtros, paginação, totais e compras parceladas no cartão |
-| Dashboard | Entradas, saídas e saldo do mês, gráfico de saídas por categoria, últimos lançamentos e link para faturas. A identificação da próxima fatura a vencer ainda está pendente |
-| Relatório por fonte/destino | Filtro de datas, entradas, saídas e saldo. A API agrega os dados no PostgreSQL; a tela ainda consulta as rotas de lançamentos e fontes/destinos |
-| Relatório por categoria | Filtro de datas, totais, percentuais, comparação com período anterior e gráfico de barras em HTML. A tela ainda consulta as rotas de lançamentos e categorias |
-| Faturas | Tela por cartão com datas, parcelas, totais e limite estimado. A API de previsão também está disponível; a tela ainda calcula as faturas com os lançamentos |
+| Dashboard | Entradas, saídas e saldo do mês, gráfico de saídas por categoria, últimos lançamentos e link para faturas. A próxima fatura com valor a vencer vem da API de previsão |
+| Relatório por fonte/destino | Filtro de datas, entradas, saídas e saldo. A tela consome os totais agregados pela API de relatórios |
+| Relatório por categoria | Filtro de datas, totais, percentuais, comparação com período anterior e gráfico de barras em HTML. A tela consome a API de relatórios |
+| Faturas | Tela por cartão com datas, parcelas, totais e limite estimado. A tela exibe os dados da API de previsão |
 | Saúde financeira | API e tela implementadas nas branches `feat/api-saude-financeira` e `feat/saude-financeira`, fora da `dev` na versão conferida |
 | Dados de demonstração | Seed pendente na `dev` |
 
@@ -152,7 +152,7 @@ Os relatórios por categoria e por fonte/destino incluem as datas inicial e fina
 - `DELETE /api/lancamentos/:id` exclui uma parcela. Use `?todasParcelas=true` para excluir o grupo inteiro.
 - `GET /api/relatorios/faturas?meses=3` retorna a fatura atual e as três seguintes por padrão. Cada fatura contém fechamento, vencimento, lançamentos e total. Uma compra parcelada aparece com a indicação da parcela, como `Notebook — 3/10`.
 - O limite utilizado soma parcelas com vencimento de hoje em diante, inclusive fora dos meses exibidos. O limite disponível é o limite do cartão menos o valor utilizado, com mínimo de zero. O limite é informativo e não bloqueia lançamentos.
-- **Regra da #21:** compra no dia do fechamento entra no próximo ciclo. Se o dia configurado não existir no mês, usa-se o último dia daquele mês. A previsão da `dev` ainda usa um cálculo próprio e precisa ser ligada à função da #21 para aplicar a mesma regra no dia do corte.
+- **Regra da #21:** compra no dia do fechamento entra no próximo ciclo. Se o dia configurado não existir no mês, usa-se o último dia daquele mês. A previsão reutiliza a função `calcularFatura`.
 
 ### Saúde financeira
 
@@ -190,7 +190,7 @@ cd backend
 npm test
 ```
 
-Os testes de integração que dependem de PostgreSQL precisam de um banco configurado. A função `calcularFatura` deve ser testada separadamente com os quatro exemplos do enunciado e os casos de fechamento em mês curto. Os arquivos da #21 ainda precisam estar nos caminhos corretos para rodar esse teste na `dev`.
+Os testes de integração que dependem de PostgreSQL precisam de um banco configurado. A função `calcularFatura` deve ser testada separadamente com os quatro exemplos do enunciado e os casos de fechamento em mês curto. Os testes ficam em `backend/test/calcularFatura.test.js`.
 
 No front-end, a partir da raiz:
 

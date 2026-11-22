@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, extrairErro } from '../services/api.js'
 
-const DIA = 86_400_000
 const moeda = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -19,81 +18,27 @@ function periodoDoMes() {
   return { inicio: `${ano}-${mes}-01`, fim: `${ano}-${mes}-${ultimoDia}` }
 }
 
-function periodoAnterior({ inicio, fim }) {
-  const primeiroDia = Date.parse(inicio)
-  const duracao = Date.parse(fim) - primeiroDia + DIA
-  return {
-    inicio: new Date(primeiroDia - duracao).toISOString().slice(0, 10),
-    fim: new Date(primeiroDia - DIA).toISOString().slice(0, 10),
-  }
-}
-
-async function agrupar(periodo, campoId, signal) {
-  const grupos = new Map()
-  let totais
-  let totalPaginas = 1
-
-  for (let pagina = 1; pagina <= totalPaginas; pagina += 1) {
-    const { data } = await api.get('/lancamentos', {
-      params: { ...periodo, pagina },
-      signal,
-    })
-
-    if (pagina === 1) {
-      totais = data.totais
-      totalPaginas = data.totalPaginas
-    }
-
-    for (const lancamento of data.lancamentos) {
-      const id = lancamento[campoId]
-      const grupo = grupos.get(id) ?? { entradas: 0, saidas: 0 }
-      const campo = lancamento.tipo === 'entrada' ? 'entradas' : 'saidas'
-      grupo[campo] += Math.round(Number(lancamento.valor) * 100)
-      grupos.set(id, grupo)
-    }
-  }
-
-  return { grupos, totais }
-}
-
 async function carregarRelatorio(modo, periodo, signal) {
-  const porCategoria = modo === 'categoria'
-  const campoId = porCategoria ? 'categoriaId' : 'fonteDestinoId'
-  const rota = porCategoria ? '/categorias' : '/fontes-destinos'
-  const anterior = porCategoria ? periodoAnterior(periodo) : null
+  const recurso = modo === 'categoria' ? 'categorias' : 'fontes-destinos'
+  const { data } = await api.get('/relatorios/' + recurso, { params: periodo, signal })
 
-  const [cadastros, atual, comparacao] = await Promise.all([
-    api.get(rota, { signal }),
-    agrupar(periodo, campoId, signal),
-    anterior ? agrupar(anterior, campoId, signal) : null,
-  ])
+  if (modo === 'fonte') {
+    return { linhas: data.fontesDestinos, totais: data.totais }
+  }
 
-  const nomes = new Map(cadastros.data.map(({ id, nome }) => [id, nome]))
-  const ids = new Set(atual.grupos.keys())
-  for (const id of comparacao?.grupos.keys() ?? []) ids.add(id)
-
-  const linhas = Array.from(ids, (id) => {
-    const { entradas, saidas } = atual.grupos.get(id) ?? { entradas: 0, saidas: 0 }
-    const previo = comparacao?.grupos.get(id)
-    return {
-      id,
-      nome: nomes.get(id) ?? (porCategoria ? 'Categoria indisponível' : 'Fonte ou destino indisponível'),
-      entradas,
-      saidas,
-      total: entradas + saidas,
-      anterior: previo ? previo.entradas + previo.saidas : 0,
-    }
-  }).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
-
-  return { linhas, totais: atual.totais, anterior }
+  return {
+    linhas: data.saidas.categorias.map((categoria) => ({ ...categoria, tipo: 'Saída' }))
+      .concat(data.entradas.categorias.map((categoria) => ({ ...categoria, tipo: 'Entrada' }))),
+    anterior: data.periodoAnterior,
+  }
 }
 
-function variacao(total, anterior) {
-  if (total === anterior) return 'Sem variação'
-  if (anterior === 0) return 'Sem base anterior'
-  const diferenca = (total - anterior) / anterior
-  const direcao = diferenca > 0 ? 'Aumento' : 'Redução'
-  return `${direcao} de ${percentual.format(Math.abs(diferenca))}`
+function formatarVariacao(valor) {
+  if (valor === undefined) return '—'
+  if (valor === null) return 'Sem base anterior'
+  if (valor === 0) return 'Sem variação'
+  const direcao = valor > 0 ? 'Aumento' : 'Redução'
+  return direcao + ' de ' + percentual.format(Math.abs(valor) / 100)
 }
 
 function TabelaFontes({ linhas, totais }) {
@@ -109,12 +54,12 @@ function TabelaFontes({ linhas, totais }) {
           </tr>
         </thead>
         <tbody>
-          {linhas.map(({ id, nome, entradas, saidas }) => (
+          {linhas.map(({ id, nome, entradas, saidas, saldo }) => (
             <tr key={id}>
               <th scope="row">{nome}</th>
-              <td>{moeda.format(entradas / 100)}</td>
-              <td>{moeda.format(saidas / 100)}</td>
-              <td>{moeda.format((entradas - saidas) / 100)}</td>
+              <td>{moeda.format(entradas)}</td>
+              <td>{moeda.format(saidas)}</td>
+              <td>{saldo === null ? '—' : moeda.format(saldo)}</td>
             </tr>
           ))}
         </tbody>
@@ -132,7 +77,6 @@ function TabelaFontes({ linhas, totais }) {
 }
 
 function RelatorioCategorias({ linhas, anterior }) {
-  const totalPeriodo = linhas.reduce((soma, linha) => soma + linha.total, 0)
   const categoriasComMovimento = linhas.filter(({ total }) => total > 0)
   const maiorTotal = Math.max(1, ...categoriasComMovimento.map(({ total }) => total))
 
@@ -149,6 +93,7 @@ function RelatorioCategorias({ linhas, anterior }) {
           <thead>
             <tr>
               <th scope="col">Categoria</th>
+              <th scope="col">Tipo</th>
               <th scope="col">Total atual</th>
               <th scope="col">Participação</th>
               <th scope="col">Total anterior</th>
@@ -156,13 +101,14 @@ function RelatorioCategorias({ linhas, anterior }) {
             </tr>
           </thead>
           <tbody>
-            {linhas.map(({ id, nome, total, anterior: totalAnterior }) => (
+            {linhas.map(({ id, nome, total, percentual: participacao, anterior: totalAnterior, variacao, tipo }) => (
               <tr key={id}>
                 <th scope="row">{nome}</th>
-                <td>{moeda.format(total / 100)}</td>
-                <td>{percentual.format(totalPeriodo ? total / totalPeriodo : 0)}</td>
-                <td>{moeda.format(totalAnterior / 100)}</td>
-                <td>{variacao(total, totalAnterior)}</td>
+                <td>{tipo}</td>
+                <td>{moeda.format(total)}</td>
+                <td>{percentual.format(participacao / 100)}</td>
+                <td>{totalAnterior === undefined ? '—' : moeda.format(totalAnterior)}</td>
+                <td>{formatarVariacao(variacao)}</td>
               </tr>
             ))}
           </tbody>
@@ -177,7 +123,7 @@ function RelatorioCategorias({ linhas, anterior }) {
           <ul>
             {categoriasComMovimento.map(({ id, nome, total }) => (
               <li key={id}>
-                <div>{nome} · {moeda.format(total / 100)}</div>
+                <div>{nome} · {moeda.format(total)}</div>
                 <meter
                   aria-label={`Total de ${nome}`}
                   value={total}

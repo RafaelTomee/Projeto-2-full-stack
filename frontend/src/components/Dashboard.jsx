@@ -34,46 +34,26 @@ export default function Dashboard() {
 
     async function carregar() {
       try {
-        const [mes, categorias, recentes, primeiraPagina] = await Promise.all([
-          api.get('/lancamentos', { params: periodo, signal }),
-          api.get('/categorias', { signal }),
+        const [mes, recentes, previsao] = await Promise.all([
+          api.get('/relatorios/categorias', { params: periodo, signal }),
           api.get('/lancamentos', { signal }),
-          api.get('/lancamentos', {
-            params: { ...periodo, tipo: 'saida' },
-            signal,
-          }),
+          api.get('/relatorios/faturas', { signal }),
         ])
 
-        const despesasPorCategoria = new Map()
-        const nomes = new Map(categorias.data.map(({ id, nome }) => [id, nome]))
-
-        function somarDespesas(lancamentos) {
-          for (const { categoriaId, valor } of lancamentos) {
-            const acumulado = despesasPorCategoria.get(categoriaId) ?? 0
-            despesasPorCategoria.set(categoriaId, acumulado + Math.round(valor * 100))
-          }
-        }
-
-        somarDespesas(primeiraPagina.data.lancamentos)
-
-        for (let pagina = 2; pagina <= primeiraPagina.data.totalPaginas; pagina += 1) {
-          const { data } = await api.get('/lancamentos', {
-            params: { ...periodo, tipo: 'saida', pagina },
-            signal,
-          })
-          somarDespesas(data.lancamentos)
-        }
+        const proximaFatura = previsao.data.cartoes
+          .flatMap(({ nome, faturas }) => faturas.map((fatura) => ({ ...fatura, nome })))
+          .filter(({ total }) => total > 0)
+          .sort((a, b) => a.vencimento.localeCompare(b.vencimento))[0]
 
         if (signal.aborted) return
 
         setResumo({
-          totais: mes.data.totais,
+          totais: { entradas: mes.data.entradas.total, saidas: mes.data.saidas.total },
           recentes: recentes.data.lancamentos.slice(0, 5),
-          gastos: Array.from(despesasPorCategoria, ([id, centavos]) => ({
-            id,
-            nome: nomes.get(id) ?? 'Categoria indisponível',
-            valor: centavos / 100,
-          })).sort((a, b) => b.valor - a.valor),
+          gastos: mes.data.saidas.categorias
+            .filter(({ total }) => total > 0)
+            .map(({ id, nome, total }) => ({ id, nome, valor: total })),
+          proximaFatura,
         })
       } catch (falha) {
         if (!signal.aborted) setErro(extrairErro(falha).mensagem)
@@ -151,6 +131,12 @@ export default function Dashboard() {
 
       <section>
         <h2>Faturas dos cartões</h2>
+        {resumo?.proximaFatura && (
+          <p>
+            {resumo.proximaFatura.nome} · {formatoData.format(new Date(resumo.proximaFatura.vencimento))}
+            {' · '}{moeda.format(resumo.proximaFatura.total)}
+          </p>
+        )}
         <Link to="/faturas">Ver faturas</Link>
       </section>
     </section>

@@ -1,3 +1,4 @@
+import { calcularFatura } from '../config/faturas.js';
 import { query } from '../config/db.js';
 
 function diaNoMes(ano, mes, dia) {
@@ -37,12 +38,10 @@ function montarCartao(cartao, lancamentos, meses, hoje) {
   let utilizado = 0;
 
   for (const lancamento of lancamentos) {
-    const [anoCompra, mesCompra, diaCompra] = lancamento.data.split('-').map(Number);
-    const mesBase = mesCompra - 1;
-    const diaCorte = diaNoMes(anoCompra, mesBase, fechamento).getUTCDate();
-    const cicloSeguinte = diaCompra > diaCorte ? 1 : 0;
-    const mesDaParcela = mesBase + cicloSeguinte + deslocamento + lancamento.parcela_atual - 1;
-    const dataVencimento = iso(diaNoMes(anoCompra, mesDaParcela, vencimento));
+    const { vencimento: dataVencimento } = calcularFatura(lancamento.data, {
+      diaFechamento: fechamento,
+      diaVencimento: vencimento,
+    }, lancamento.parcela_atual);
     const centavos = Math.round(Number(lancamento.valor) * 100);
 
     if (dataVencimento >= hoje) utilizado += centavos;
@@ -76,6 +75,7 @@ function montarCartao(cartao, lancamentos, meses, hoje) {
     limiteDisponivel: Math.max(0, limite - utilizado) / 100,
     faturas: faturas.map(({ totalCentavos, ...fatura }) => ({
       ...fatura,
+      referencia: fatura.vencimento.slice(0, 7),
       total: totalCentavos / 100,
     })),
   };
