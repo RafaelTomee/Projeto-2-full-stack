@@ -8,8 +8,7 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "db:create": "node database/setup.js",
-    "test": "node --test",
-    "db:seed": "node database/seed.js"
+    "test": "node --test"
   },
   "license": "ISC",
   "dependencies": {
