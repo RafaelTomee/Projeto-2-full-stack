@@ -1,238 +1,212 @@
 # Projeto 2 — Aplicação Full Stack de Controle Financeiro
 
-Disciplina: Programação Web Full Stack — Engenharia de Software (UTFPR)
+**Disciplina:** Programação Web Full Stack — Engenharia de Software (UTFPR)
 
-Aplicação de controle financeiro pessoal: o usuário se cadastra, faz login e registra entradas e saídas, organizadas por categoria e por fonte/destino. A partir desses dados, a aplicação gera relatórios por categoria, por fonte/destino e a previsão das faturas dos cartões de crédito.
+Aplicação de controle financeiro pessoal. O usuário pode criar uma conta, entrar no sistema, cadastrar categorias e fontes/destinos, registrar receitas e despesas, parcelar compras em cartões e acompanhar relatórios e previsões de faturas.
 
 ## Integrantes
 
 | Integrante | GitHub | Área principal |
 |---|---|---|
-| Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | A: autenticação, banco, segurança, erros e documentação |
-| Silvio Henrique | [@silvioGPS](https://github.com/silvioGPS) | B: categorias, fontes/destinos e lançamentos |
-| Julio Cezar | [@JuliooCezar](https://github.com/JuliooCezar) | C: relatórios, faturas e dashboard |
+| Rafael Tomé | [@RafaelTomee](https://github.com/RafaelTomee) | Autenticação, banco, segurança, erros e documentação |
+| Silvio Henrique | [@silvioGPS](https://github.com/silvioGPS) | Categorias, fontes/destinos e lançamentos |
+| Julio Cezar | [@JuliooCezar](https://github.com/JuliooCezar) | Dashboard, relatórios, faturas e saúde financeira |
 
-O quadro de tarefas está na aba **Projects** do repositório; cada tarefa é uma issue.
+As tarefas e seus checklists ficam nas [issues do repositório](https://github.com/RafaelTomee/Projeto-2-full-stack/issues). O quadro de acompanhamento fica na aba **Projects**.
 
-## Status
+## Funcionalidades
 
-- [x] Estrutura do repositório e banco de dados (PostgreSQL)
-- [x] Validações de cadastro (CPF, e-mail, senha)
-- [x] Cadastro, login (JWT), `/me` e rate limit no login
-- [x] Middleware de erros centralizado e CORS restrito
-- [x] Front: Vite, rotas protegidas, cliente HTTP único e AuthContext
-- [ ] CRUD de categorias, fontes/destinos e lançamentos (com parcelamento)
-- [ ] Relatórios por categoria e por fonte/destino
-- [ ] Previsão de faturas dos cartões
-- [ ] Seed de demonstração
-- [ ] Desafio: saúde financeira (opcional)
-
-## Decisões técnicas
-
-### Banco de dados
-
-**PostgreSQL.** Escolhido porque o modelo é relacional (usuários, categorias, fontes/destinos e lançamentos com chaves estrangeiras), porque dá para garantir unicidade (`UNIQUE`), `CHECK` e transações no próprio banco, e porque as agregações dos relatórios (`GROUP BY`, `SUM`) são feitas direto em SQL.
-
-### Bibliotecas
-
-Lista para conhecimento e aprovação do professor.
-
-**Back-end**
-
-| Biblioteca | Uso |
+| Funcionalidade | O que está disponível |
 |---|---|
-| express (v5) | Servidor HTTP e rotas |
-| cors | Libera apenas a origem do front-end |
-| dotenv | Variáveis de ambiente (`.env`) |
-| pg | Driver do PostgreSQL e pool de conexões |
-| bcrypt | Hash e salt das senhas |
-| jsonwebtoken | Geração e validação do JWT |
-| express-rate-limit | Limite de tentativas na rota de login |
+| Autenticação | Cadastro, login, consulta do usuário autenticado e rotas protegidas |
+| Categorias e fontes/destinos | Cadastro, consulta, edição e exclusão |
+| Lançamentos | Entradas e saídas, filtros, paginação, totais e compras parceladas no cartão |
+| Dashboard | Entradas, saídas e saldo do mês, gráfico de saídas por categoria, últimos lançamentos e link para faturas. A identificação da próxima fatura a vencer ainda está pendente |
+| Relatório por fonte/destino | Filtro de datas, entradas, saídas e saldo. A API agrega os dados no PostgreSQL; a tela ainda consulta as rotas de lançamentos e fontes/destinos |
+| Relatório por categoria | Filtro de datas, totais, percentuais, comparação com período anterior e gráfico de barras em HTML. A tela ainda consulta as rotas de lançamentos e categorias |
+| Faturas | Tela por cartão com datas, parcelas, totais e limite estimado. A API de previsão também está disponível; a tela ainda calcula as faturas com os lançamentos |
+| Saúde financeira | API e tela implementadas nas branches `feat/api-saude-financeira` e `feat/saude-financeira`, fora da `dev` na versão conferida |
+| Dados de demonstração | Seed pendente na `dev` |
 
-**Front-end**
+## Tecnologias e decisões
 
-| Biblioteca | Uso |
-|---|---|
-| react + vite | SPA |
-| react-router-dom | Roteamento e rotas protegidas |
-| axios | Cliente HTTP único, com tratamento de 401 |
-| recharts _(proposta)_ | Gráficos dos relatórios, a instalar após aprovação |
-
-Os testes usam o runner nativo do Node (`node:test`), sem biblioteca extra, e o lint do front usa o `oxlint` que acompanha o template do Vite.
-
-### Outras decisões
-
-- Back-end em ES Modules (`"type": "module"`).
-- Valores monetários em `NUMERIC(12,2)` no banco, nunca `float`.
-- E-mail gravado em minúsculas (`trim().toLowerCase()`) e CPF apenas com dígitos, para a unicidade funcionar de verdade.
-- Unicidade de e-mail e CPF garantida pelo banco (`UNIQUE`); o servidor traduz a violação (código `23505`) em resposta 409 com a mensagem no campo correto.
-- Cadastro em transação: usuário, categorias padrão e fontes/destinos padrão são gravados juntos, ou nenhum.
-- Senha com hash bcrypt (custo 10), limitada a 72 caracteres (o bcrypt ignora o que passa disso).
-- JWT assinado com HS256, validade de 1 hora (`JWT_EXPIRES_IN`), id do usuário no campo `sub`. O servidor não sobe sem `JWT_SECRET`.
-- Login com mensagem genérica ("E-mail ou senha inválidos") e comparação de hash mesmo quando o e-mail não existe, para o tempo de resposta não revelar quais e-mails estão cadastrados.
-- Rate limit no login: 10 tentativas com falha por IP a cada 15 minutos (logins bem-sucedidos não contam).
-- Controladores ficam dentro dos arquivos de `routes/`; o acesso ao banco fica somente em `models/`.
-- Funções utilitárias puras ficam em `backend/src/models/` (ex.: `validacoes.js`).
-- Front: o token fica no `localStorage`; ao expirar (ou ao receber 401), o app volta ao login automaticamente.
-- _(A completar)_ Cálculo das faturas: calcular na leitura ou gravar a data de vencimento em cada parcela (e justificativa).
+- **Front-end:** React, Vite, React Router e Axios. As telas usam o cliente HTTP compartilhado em `frontend/src/services/api.js`.
+- **Back-end:** Node.js com ES Modules, Express, `pg`, `dotenv`, `cors`, `bcrypt`, `jsonwebtoken` e `express-rate-limit`.
+- **Banco:** PostgreSQL. Chaves estrangeiras, restrições e índices garantem a integridade dos dados. Os relatórios da API agregam valores com `SUM` e `GROUP BY`.
+- **Dinheiro:** o banco armazena valores em `NUMERIC(12,2)`. A divisão de compras parceladas trabalha em centavos.
+- **Cadastro:** e-mail normalizado em minúsculas, CPF armazenado só com dígitos e senha com hash bcrypt. O usuário e seus cadastros padrão são inseridos na mesma transação.
+- **Sessão:** JWT HS256 com validade padrão de uma hora. O login tem limite de dez tentativas com falha por IP a cada quinze minutos. O front encerra a sessão quando o token expira ou a API responde `401` a uma requisição autenticada.
+- **Acesso aos dados:** as rotas protegidas usam `req.usuarioId` para consultar os dados do usuário autenticado.
+- **Gráficos:** as barras atuais usam elementos HTML. A adoção de uma biblioteca depende da definição do grupo e da aprovação do professor.
 
 ## Estrutura do projeto
 
-```
+```text
 .
 ├── backend/
-│   ├── package.json
-│   ├── .env.example           modelo das variáveis de ambiente
 │   ├── database/
-│   │   ├── schema.sql         criação das tabelas
-│   │   └── setup.js           cria o banco e aplica o schema (npm run db:create)
+│   │   ├── schema.sql
+│   │   └── setup.js
 │   ├── src/
-│   │   ├── server.js          app Express, middlewares e rotas
-│   │   ├── routes/            rotas + controladores (auth.routes.js...)
-│   │   ├── models/            acesso ao banco, regras de persistência e utilitários puros
-│   │   ├── middlewares/       autenticar, validarCadastro, limitarLogin, erros
-│   │   └── config/            db.js (pool), jwt.js, cors.js
-│   └── test/                  testes (node:test)
+│   │   ├── config/
+│   │   ├── middlewares/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── utils/
+│   │   └── server.js
+│   └── test/
 ├── frontend/
-│   ├── package.json
-│   ├── .env.example           VITE_API_URL (opcional)
-│   ├── README.md              guia do front (como chamar a API, criar telas)
 │   ├── src/
-│   │   ├── main.jsx, App.jsx  providers e rotas
-│   │   ├── components/        telas e componentes
-│   │   ├── contexts/          AuthContext
-│   │   └── services/          api.js (único acesso à API), authStorage.js, token.js
-│   └── test/                  testes dos serviços
-├── docs/
-│   └── padrao-de-erros.md     padrão de resposta de erro da API
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   └── test/
 └── README.md
 ```
 
 ## Como rodar
 
-### Pré-requisitos
+Instale o Node.js e deixe o PostgreSQL em execução. Use uma versão do Node compatível com o Vite do projeto, como Node 22.12 ou superior na linha 22.
 
-- Node.js 20 ou superior
-- PostgreSQL instalado e em execução
+### Back-end
 
-### 1. Back-end
+Na raiz do projeto:
 
 ```bash
 cd backend
 npm install
-cp .env.example .env      # no Windows (PowerShell): Copy-Item .env.example .env
+cp .env.example .env
 ```
 
-Edite o `.env` com os seus dados:
+No PowerShell, use `Copy-Item .env.example .env` no lugar de `cp`.
 
-| Variável | Descrição | Exemplo |
+Configure o arquivo `.env`:
+
+| Variável | Uso | Exemplo |
 |---|---|---|
 | `PORT` | Porta da API | `3000` |
-| `FRONTEND_URL` | Origem(ns) permitida(s) no CORS, separadas por vírgula | `http://localhost:5173` |
+| `FRONTEND_URL` | Origem permitida para o front-end | `http://localhost:5173` |
 | `DATABASE_URL` | Conexão com o PostgreSQL | `postgresql://postgres:senha@localhost:5432/financas` |
-| `JWT_SECRET` | Segredo do JWT (string longa e aleatória) | — |
+| `JWT_SECRET` | Segredo usado para assinar tokens | Gere um valor longo e aleatório |
 | `JWT_EXPIRES_IN` | Validade do token | `1h` |
 
-Crie o banco e as tabelas (pode ser executado mais de uma vez):
+Com as credenciais do PostgreSQL configuradas, crie o banco, aplique o schema e inicie a API:
 
 ```bash
 npm run db:create
+npm run dev
 ```
 
-Suba a API:
+Para verificar se o servidor subiu, abra `http://localhost:3000/api/saude`. A resposta esperada é `{"status":"ok"}`.
 
-```bash
-npm run dev               # http://localhost:3000
-```
+O `.env` contém configurações locais e deve ficar fora do Git. Enquanto o seed estiver pendente, cadastre um usuário e crie lançamentos pela interface para demonstrar o sistema.
 
-Teste: `GET http://localhost:3000/api/saude` deve responder `{ "status": "ok" }`.
+### Front-end
 
-> O arquivo `.env` não vai para o Git. Cada integrante cria o seu.
-
-### 2. Seed (dados de demonstração)
-
-_Em breve:_ `npm run db:seed` (2 usuários e 3 meses de lançamentos).
-
-### 3. Front-end
+Em outro terminal, a partir da raiz do projeto:
 
 ```bash
 cd frontend
 npm install
-npm run dev               # http://localhost:5173
+npm run dev
 ```
 
-A API precisa estar no ar. Cadastre um usuário em `/cadastro` e faça login. Detalhes e exemplos em [`frontend/README.md`](frontend/README.md).
-
-### Testes e verificações
-
-```bash
-cd backend && npm test    # testes de integração precisam do banco configurado; sem ele, são ignorados
-cd frontend && npm test   # testes dos serviços (api.js, token, sessão)
-cd frontend && npm run lint && npm run build
-```
+Abra `http://localhost:5173`. Cadastre um usuário em `/cadastro` e faça login. Se a API estiver em outro endereço, configure `VITE_API_URL` no front-end. O padrão é `http://localhost:3000/api`.
 
 ## Rotas da API
 
-Todas as rotas abaixo de `/api`, exceto cadastro e login, exigem o cabeçalho `Authorization: Bearer <token>`.
+Envie `Authorization: Bearer <token>` nas rotas protegidas. O teste de disponibilidade, o cadastro e o login são públicos.
 
-| Método | Rota | Descrição | Status |
-|---|---|---|---|
-| POST | `/api/auth/cadastro` | Cadastra usuário | Pronta |
-| POST | `/api/auth/login` | Autentica e devolve o JWT | Pronta |
-| GET | `/api/auth/me` | Dados do usuário logado | Pronta |
-| GET, POST | `/api/categorias` | Lista / cria categorias | Planejada |
-| PUT, DELETE | `/api/categorias/:id` | Edita / exclui categoria | Planejada |
-| GET, POST | `/api/fontes-destinos` | Lista / cria fontes e destinos | Planejada |
-| PUT, DELETE | `/api/fontes-destinos/:id` | Edita / exclui fonte/destino | Planejada |
-| GET, POST | `/api/lancamentos` | Lista com filtros e paginação / cria (com parcelas) | Planejada |
-| GET, PUT, DELETE | `/api/lancamentos/:id` | Detalha / edita / exclui (`?todasParcelas=true`) | Planejada |
-| GET | `/api/relatorios/categorias` | Relatório por categoria | Planejada |
-| GET | `/api/relatorios/fontes-destinos` | Relatório por fonte/destino | Planejada |
-| GET | `/api/relatorios/faturas` | Previsão de faturas dos cartões | Planejada |
-| GET | `/api/saude-financeira` | Desafio (opcional) | Planejada |
+| Método | Rota | Descrição |
+|---|---|---|
+| GET | `/api/saude` | Disponibilidade da API |
+| POST | `/api/auth/cadastro` | Cadastro de usuário |
+| POST | `/api/auth/login` | Login e emissão do JWT |
+| GET | `/api/auth/me` | Usuário autenticado |
+| GET, POST | `/api/categorias` | Listagem e criação de categorias |
+| PUT, DELETE | `/api/categorias/:id` | Edição e exclusão de categoria |
+| GET, POST | `/api/fontes-destinos` | Listagem e criação de fontes/destinos |
+| PUT, DELETE | `/api/fontes-destinos/:id` | Edição e exclusão de fonte/destino |
+| GET, POST | `/api/lancamentos` | Listagem paginada ou criação de lançamento |
+| GET, PUT, DELETE | `/api/lancamentos/:id` | Detalhe, edição ou exclusão de lançamento |
+| GET | `/api/relatorios/categorias?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` | Relatório por categoria e comparação com o período anterior |
+| GET | `/api/relatorios/fontes-destinos?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` | Relatório por fonte/destino |
+| GET | `/api/relatorios/faturas?meses=3` | Fatura atual e previsão dos próximos ciclos por cartão |
+| GET | `/api/saude-financeira` | Indicadores, projeção e dicas. Disponível na branch da API de saúde financeira |
 
-### Parcelamento em cartão
+### Relatórios
 
-- `POST /api/lancamentos` com `totalParcelas` entre 2 e 48 cria as parcelas em uma transação (se uma falha, nenhuma é gravada). `totalParcelas` deve ser número inteiro; parcelamento só para `saida` em cartão de crédito e cada parcela deve valer pelo menos R$ 0,01.
-- Cada parcela guarda a **data da compra** (igual ao seed). A data da fatura é calculada pelos dias de fechamento/vencimento do cartão; a modelagem (manter data da compra ou gravar data da fatura) ainda será decidida com o time C.
-- `PUT` numa parcela altera só `descricao` e `categoriaId`. Mudar valor, data, tipo ou fonte responde **409**: exclua e recrie o parcelamento.
-- `DELETE /api/lancamentos/:id?todasParcelas=true` exclui o grupo inteiro. Sem esse parâmetro (ou com qualquer outro valor) exclui apenas a parcela; o valor precisa ser exatamente `true`.
-- `limite` do cartão é informativo: a API não bloqueia compras acima dele (o enunciado não exige esse controle).
-- Por compatibilidade com o contrato atual, `POST` devolve a primeira parcela; devolver `{ parcelas: [...] }` depende de alinhamento com o front e com o C.
+Os relatórios por categoria e por fonte/destino incluem as datas inicial e final. Datas inválidas, ausentes ou em ordem invertida retornam `400`.
 
-## Padrão de erros da API
+- **Por categoria:** a resposta contém `periodo`, `periodoAnterior`, `entradas` e `saidas`. Cada grupo traz `total` e `categorias`. As saídas vêm do maior total para o menor e incluem participação percentual, valor anterior e variação percentual. A variação é `null` quando o valor anterior é zero. O período anterior termina na véspera do início do período selecionado e tem a mesma quantidade de dias.
+- **Por fonte/destino:** a resposta contém `inicio`, `fim` e `fontesDestinos`, com entradas e saídas por cadastro. O saldo do período é calculado para o tipo `conta`. Para os demais tipos, `saldo` é `null`.
 
-Toda resposta de erro segue o mesmo formato, e o front-end trata todas do mesmo jeito:
+### Parcelamento e previsão de faturas
+
+- Uma saída parcelada deve estar ligada a um cartão de crédito. `totalParcelas` aceita números inteiros de 2 a 48 para compras parceladas. Cada parcela vale pelo menos R$ 0,01.
+- As parcelas de uma compra são criadas na mesma transação e compartilham um identificador de grupo.
+- **Modelagem escolhida:** o banco guarda a data da compra e o número da parcela. O fechamento e o vencimento são calculados na leitura, usando os dias configurados no cartão. Isso evita armazenar uma data derivada em cada lançamento.
+- No `PUT` de uma parcela, podem ser alteradas a descrição e a categoria. Para mudar valor, data, tipo ou fonte, exclua e recrie o parcelamento.
+- `DELETE /api/lancamentos/:id` exclui uma parcela. Use `?todasParcelas=true` para excluir o grupo inteiro.
+- `GET /api/relatorios/faturas?meses=3` retorna a fatura atual e as três seguintes por padrão. Cada fatura contém fechamento, vencimento, lançamentos e total. Uma compra parcelada aparece com a indicação da parcela, como `Notebook — 3/10`.
+- O limite utilizado soma parcelas com vencimento de hoje em diante, inclusive fora dos meses exibidos. O limite disponível é o limite do cartão menos o valor utilizado, com mínimo de zero. O limite é informativo e não bloqueia lançamentos.
+- **Regra da #21:** compra no dia do fechamento entra no próximo ciclo. Se o dia configurado não existir no mês, usa-se o último dia daquele mês. A previsão da `dev` ainda usa um cálculo próprio e precisa ser ligada à função da #21 para aplicar a mesma regra no dia do corte.
+
+### Saúde financeira
+
+A rota de saúde financeira exige autenticação e calcula os indicadores a partir dos lançamentos do usuário, usando o horário de Brasília para definir o mês de referência.
+
+- **Taxa de poupança:** saldo do mês dividido pelas receitas, em percentual. Abaixo de 10%, a API sugere revisar as despesas.
+- **Comprometimento com cartões:** saídas do cartão no mês da fatura divididas pelas receitas, em percentual. Acima de 30%, a API sugere revisar os gastos no cartão.
+- **Parcelas futuras:** soma das parcelas com vencimento nos próximos três meses.
+- **Projeção:** parte do saldo líquido do mês atual e acumula os movimentos registrados para os próximos três meses. Se algum saldo projetado ficar negativo, a API sinaliza isso e a tela exibe um alerta.
+- **Mês sem receitas:** os dois indicadores percentuais retornam `null`, e a API sugere registrar as entradas.
+
+A tela mostra os indicadores, o gráfico de projeção e as dicas. Os limites de 10% e 30% são critérios educativos do projeto. As informações apresentadas não constituem recomendação financeira profissional.
+
+## Padrão de erros
+
+As rotas retornam mensagens no formato abaixo. O campo `campos` é usado quando há erros de validação associados a campos específicos.
 
 ```json
 {
   "erro": "Dados inválidos.",
-  "campos": { "valor": "O valor deve ser maior que zero." }
+  "campos": {
+    "fim": "A data final deve ser igual ou posterior à inicial."
+  }
 }
 ```
 
-`campos` é opcional e só aparece em erros de formulário. Status usados: 400, 401, 404, 409, 413, 429 e 500 (genérico, sem vazar detalhes). Tabela completa e como lançar erros nas rotas: [`docs/padrao-de-erros.md`](docs/padrao-de-erros.md).
+As rotas protegidas usam o middleware `autenticar`. Novas rotas devem ser registradas em `backend/src/server.js` antes de `rotaNaoEncontrada` e `tratarErros`.
 
-## Como proteger uma rota (para quem cria rotas)
+## Testes
 
-```js
-import { autenticar } from '../middlewares/autenticar.js';
-import { erroValidacao, naoEncontrado } from '../middlewares/erros.js';
+No back-end:
 
-router.get('/categorias', autenticar, async (req, res) => {
-  // req.usuarioId é o id do usuário logado (número). Use SEMPRE ele no WHERE:
-  //   SELECT ... FROM categorias WHERE usuario_id = $1
-  // Nunca pegue o id do usuário do corpo da requisição ou da URL.
-});
+```bash
+cd backend
+npm test
 ```
 
-Registre a rota em `backend/src/server.js`, acima de `rotaNaoEncontrada` e `tratarErros`, que precisam ser as últimas.
+Os testes de integração que dependem de PostgreSQL precisam de um banco configurado. A função `calcularFatura` deve ser testada separadamente com os quatro exemplos do enunciado e os casos de fechamento em mês curto. Os arquivos da #21 ainda precisam estar nos caminhos corretos para rodar esse teste na `dev`.
+
+No front-end, a partir da raiz:
+
+```bash
+cd frontend
+npm test
+npm run lint
+npm run build
+```
+
+As rotas de previsão de faturas e dos dois relatórios foram exercitadas com dados de teste. A validação da previsão com a compra do seed oficial fica pendente até o seed entrar na `dev`.
 
 ## Fluxo de trabalho do grupo
 
-1. Cada tarefa é uma issue no quadro (Projects).
-2. Uma branch por tarefa, a partir da `dev`: `feat/nome-curto`, `fix/nome-curto` ou `docs/nome-curto`.
-3. Commits pequenos e frequentes, com mensagens no padrão `tipo: descrição` (`feat`, `fix`, `docs`, `chore`).
-4. Pull Request para a `dev` com `Closes #N` na descrição; outro integrante revisa antes do merge.
-5. A `dev` é integrada à `main` nos marcos do projeto, por Pull Request.
-6. Sem commit direto na `main` ou na `dev`.
+1. Acompanhar a tarefa pela issue correspondente.
+2. Criar uma branch a partir da `dev`, como `feat/nome-da-tarefa`.
+3. Usar mensagens de commit como `feat:`, `fix:` ou `docs:`.
+4. Abrir um Pull Request para a `dev`, mencionar a issue e pedir revisão a outro integrante.
+5. Integrar a `dev` à `main` nos marcos do projeto, por Pull Request.
