@@ -3,6 +3,7 @@ import { autenticar } from '../middlewares/autenticar.js';
 import { erroValidacao } from '../middlewares/erros.js';
 import { preverFaturas } from '../models/Fatura.js';
 import { consultarRelatorioFonteDestino } from '../models/RelatorioFonteDestino.js';
+import { consultarRelatorioCategoria } from '../models/RelatorioCategoria.js';
 
 const router = Router();
 
@@ -17,8 +18,7 @@ function dataValida(valor) {
     && data.toISOString().slice(0, 10) === valor;
 }
 
-router.get('/fontes-destinos', autenticar, async (req, res) => {
-  const { inicio, fim } = req.query;
+function validarPeriodo({ inicio, fim }) {
   const campos = {};
 
   if (!dataValida(inicio)) campos.inicio = 'Informe uma data válida no formato AAAA-MM-DD.';
@@ -29,6 +29,16 @@ router.get('/fontes-destinos', autenticar, async (req, res) => {
     throw erroValidacao({ fim: 'A data final deve ser igual ou posterior à inicial.' });
   }
 
+  return { inicio, fim };
+}
+
+router.get('/categorias', autenticar, async (req, res) => {
+  const { inicio, fim } = validarPeriodo(req.query);
+  res.json(await consultarRelatorioCategoria(req.usuarioId, inicio, fim));
+});
+
+router.get('/fontes-destinos', autenticar, async (req, res) => {
+  const { inicio, fim } = validarPeriodo(req.query);
   const fontesDestinos = await consultarRelatorioFonteDestino(req.usuarioId, inicio, fim);
   res.json({ inicio, fim, fontesDestinos });
 });
