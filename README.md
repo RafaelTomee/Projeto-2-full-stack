@@ -25,7 +25,7 @@ As tarefas e seus checklists ficam nas [issues do repositório](https://github.c
 | Relatório por fonte/destino | Filtro de datas, entradas, saídas e saldo. A tela consome os totais agregados pela API de relatórios |
 | Relatório por categoria | Filtro de datas, totais, percentuais, comparação com período anterior e gráfico de barras em HTML. A tela consome a API de relatórios |
 | Faturas | Tela por cartão com datas, parcelas, totais e limite estimado. A tela exibe os dados da API de previsão |
-| Saúde financeira | API e tela implementadas nas branches `feat/api-saude-financeira` e `feat/saude-financeira`, fora da `dev` na versão conferida |
+| Saúde financeira | Indicadores, projeção de três meses e dicas na tela protegida `/saude-financeira` |
 | Dados de demonstração | `npm run db:seed` cria 2 usuários (Ana e Bruno) com 3 meses de lançamentos, compras parceladas e casos de fechamento de fatura |
 
 ## Tecnologias
@@ -181,7 +181,7 @@ Envie `Authorization: Bearer <token>` nas rotas protegidas. O teste de disponibi
 | GET | `/api/relatorios/categorias?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` | Relatório por categoria e comparação com o período anterior |
 | GET | `/api/relatorios/fontes-destinos?inicio=AAAA-MM-DD&fim=AAAA-MM-DD` | Relatório por fonte/destino |
 | GET | `/api/relatorios/faturas?meses=3` | Fatura atual e previsão dos próximos ciclos por cartão |
-| GET | `/api/saude-financeira` | Indicadores, projeção e dicas. Disponível na branch da API de saúde financeira |
+| GET | `/api/saude-financeira` | Indicadores, projeção e dicas para o usuário autenticado |
 
 ### Relatórios
 
@@ -222,9 +222,12 @@ A rota de saúde financeira exige autenticação e calcula os indicadores a part
 
 - **Taxa de poupança:** saldo do mês dividido pelas receitas, em percentual. Abaixo de 10%, a API sugere revisar as despesas.
 - **Comprometimento com cartões:** saídas do cartão no mês da fatura divididas pelas receitas, em percentual. Acima de 30%, a API sugere revisar os gastos no cartão.
-- **Parcelas futuras:** soma das parcelas com vencimento nos próximos três meses.
+- **Parcelas futuras:** soma das saídas parceladas com vencimento nos próximos três meses. Quando o total é positivo, a API sugere conferir os vencimentos.
 - **Projeção:** parte do saldo líquido do mês atual e acumula os movimentos registrados para os próximos três meses. Se algum saldo projetado ficar negativo, a API sinaliza isso e a tela exibe um alerta.
-- **Mês sem receitas:** os dois indicadores percentuais retornam `null`, e a API sugere registrar as entradas.
+- **Mês sem receitas:** os dois indicadores percentuais retornam `null`, evitando divisão por zero. Se houver lançamentos no intervalo, a API sugere registrar as entradas.
+- **Sem lançamentos no intervalo:** a API devolve `temLancamentos: false`, parcelas futuras e projeção zeradas. A tela mostra “Sem lançamentos suficientes”.
+
+As saídas em cartão usam o mês de vencimento calculado por `calcularFatura`. As demais movimentações usam a data registrada. A projeção acumula apenas lançamentos registrados. Para conferir dados diferentes na tela, rode `npm run db:seed` no back-end e use as contas Ana e Bruno descritas no [guia do seed](docs/seed.md).
 
 A tela mostra os indicadores, o gráfico de projeção e as dicas. Os limites de 10% e 30% são critérios educativos do projeto. As informações apresentadas não constituem recomendação financeira profissional.
 

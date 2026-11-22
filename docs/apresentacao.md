@@ -95,7 +95,9 @@ Na véspera, conferir na tela com a **data real que vão usar**: Visa fecha dia 
 
 ## 7. Desafio: saúde financeira (Julio, 0:30)
 
-Só se estiver na versão entregue: taxa de poupança, comprometimento com cartões, parcelas futuras e a projeção de 3 meses com alerta de saldo negativo. Dizer que os limites de 10% e 30% são critérios educativos.
+Abra **Saúde financeira** na conta da Ana. Depois, compare com a conta do Bruno.
+
+> “A taxa de poupança divide o saldo do mês pela renda. O comprometimento divide as saídas do cartão pela renda. Também somamos as parcelas dos próximos três meses e projetamos o saldo com os lançamentos registrados. A tela alerta se algum mês ficar negativo. Os limites de 10% para poupança e 30% para cartão são critérios educativos do projeto.”
 
 ## 8. Fechamento (Rafael, 0:15)
 
