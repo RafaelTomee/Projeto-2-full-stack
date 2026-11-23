@@ -40,8 +40,6 @@ As tarefas e seus checklists ficam nas [issues do repositório](https://github.c
 
 ## Decisões de projeto
 
-- **Front-end:** React, Vite, React Router e Axios. As telas usam o cliente HTTP compartilhado em `frontend/src/services/api.js`.
-- **Back-end:** Node.js com ES Modules, Express, `pg`, `dotenv`, `cors`, `bcrypt`, `jsonwebtoken` e `express-rate-limit`.
 - **Banco:** PostgreSQL. Chaves estrangeiras, restrições e índices garantem a integridade dos dados. Os relatórios da API agregam valores com `SUM` e `GROUP BY`.
 - **Dinheiro:** o banco armazena valores em `NUMERIC(12,2)`. A divisão de compras parceladas trabalha em centavos.
 - **Cadastro:** e-mail normalizado em minúsculas, CPF armazenado só com dígitos e senha com hash bcrypt. O usuário e seus cadastros padrão são inseridos na mesma transação.
@@ -194,12 +192,11 @@ Os relatórios por categoria e por fonte/destino incluem as datas inicial e fina
 
 - Uma saída parcelada deve estar ligada a um cartão de crédito. `totalParcelas` aceita números inteiros de 2 a 48 para compras parceladas. Cada parcela vale pelo menos R$ 0,01.
 - As parcelas de uma compra são criadas na mesma transação e compartilham um identificador de grupo.
-- **Modelagem escolhida:** o banco guarda a data da compra e o número da parcela. O fechamento e o vencimento são calculados na leitura, usando os dias configurados no cartão. Isso evita armazenar uma data derivada em cada lançamento.
 - No `PUT` de uma parcela, podem ser alteradas a descrição e a categoria. Para mudar valor, data, tipo ou fonte, exclua e recrie o parcelamento.
 - `DELETE /api/lancamentos/:id` exclui uma parcela. Use `?todasParcelas=true` para excluir o grupo inteiro.
 - `GET /api/relatorios/faturas?meses=3` retorna a fatura atual e as três seguintes por padrão. Cada fatura contém fechamento, vencimento, lançamentos e total. Uma compra parcelada aparece com a indicação da parcela, como `Notebook — 3/10`.
 - O limite utilizado soma parcelas com vencimento de hoje em diante, inclusive fora dos meses exibidos. O limite disponível é o limite do cartão menos o valor utilizado, com mínimo de zero. O limite é informativo e não bloqueia lançamentos.
-- **Regra da #21:** compra no dia do fechamento entra no próximo ciclo. Se o dia configurado não existir no mês, usa-se o último dia daquele mês. A previsão reutiliza a função `calcularFatura`.
+- A previsão de faturas reutiliza `calcularFatura`, a mesma função explicada na seção seguinte, junto com a regra do dia do fechamento.
 
 ### Como as faturas são calculadas (e por quê)
 
@@ -264,6 +261,11 @@ npm run build
 
 - **Isolamento (RF3):** teste automatizado, auditoria estática e coleção Postman. Explicação e resultados em [`docs/isolamento-rf3.md`](docs/isolamento-rf3.md).
 - **Faturas:** `calcularFatura.test.js` cobre os exemplos do enunciado e os meses curtos.
+- **Coleção Postman:** com a API rodando em `localhost:3000`, importe `postman/isolamento-rf3.postman_collection.json` e o ambiente `postman/local.postman_environment.json`, ou rode:
+
+  ```bash
+  npx newman run postman/isolamento-rf3.postman_collection.json -e postman/local.postman_environment.json
+  ```
 - **Segurança:** nenhuma resposta da API contém `senha_hash` (verificado nos testes de isolamento e na coleção Postman).
 
 ## Apresentação e entrega
