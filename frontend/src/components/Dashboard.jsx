@@ -68,11 +68,11 @@ export default function Dashboard() {
     <section>
       <h1>Resumo do mês</h1>
 
-      {erro && <p role="alert">{erro}</p>}
+      {erro && <p className="ui-erro" role="alert">{erro}</p>}
       {!resumo && !erro && <p role="status">Carregando resumo…</p>}
 
       {resumo && (
-        <>
+        <div>
           <div className="ui-cards">
             <div className="ui-card ui-card-entradas">
               <span>Entradas do mês</span>
@@ -88,48 +88,53 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <section>
-            <h2>Saídas por categoria</h2>
-            {resumo.gastos.length === 0 ? (
-              <p>Nenhuma saída registrada neste mês.</p>
-            ) : (
-              <ul>
-                {resumo.gastos.map(({ id, nome, valor }) => (
-                  <li key={id}>
-                    <div>{nome} · {moeda.format(valor)}</div>
-                    <meter
-                      aria-label={nome}
-                      min={0}
-                      max={resumo.gastos[0].valor}
-                      value={valor}
-                      style={{ width: '100%', maxWidth: 360 }}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <div className="dashboard-paineis">
+            <section className="ui-painel">
+              <h2>Saídas por categoria</h2>
+              {resumo.gastos.length === 0 ? (
+                <p>Nenhuma saída registrada neste mês.</p>
+              ) : (
+                <ul className="dashboard-lista">
+                  {resumo.gastos.map(({ id, nome, valor }) => (
+                    <li key={id}>
+                      <div className="dashboard-linha"><span>{nome}</span><b>{moeda.format(valor)}</b></div>
+                      <meter
+                        aria-label={nome}
+                        min={0}
+                        max={resumo.gastos[0].valor}
+                        value={valor}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-          <section>
-            <h2>Últimos lançamentos</h2>
-            {resumo.recentes.length === 0 ? (
-              <p>Nenhum lançamento registrado.</p>
-            ) : (
-              <ul>
-                {resumo.recentes.map(({ id, descricao, data, tipo, valor }) => (
-                  <li key={id}>
-                    <time dateTime={data}>{formatoData.format(new Date(data))}</time>
-                    {' · '}{descricao}
-                    {' · '}{tipo === 'saida' ? '−' : '+'}{moeda.format(valor)}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </>
+            <section className="ui-painel">
+              <h2>Últimos lançamentos</h2>
+              {resumo.recentes.length === 0 ? (
+                <p>Nenhum lançamento registrado.</p>
+              ) : (
+                <ul className="dashboard-lista">
+                  {resumo.recentes.map(({ id, descricao, data, tipo, valor }) => (
+                    <li key={id}>
+                      <div className="dashboard-linha">
+                        <span>{descricao}</span>
+                        <b className={tipo === 'saida' ? 'dashboard-saida' : 'dashboard-entrada'}>
+                          {tipo === 'saida' ? '−' : '+'}{moeda.format(valor)}
+                        </b>
+                      </div>
+                      <time dateTime={data}>{formatoData.format(new Date(data))}</time>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
       )}
 
-      <section>
+      <section className="ui-painel">
         <h2>Faturas dos cartões</h2>
         {resumo?.proximaFatura && (
           <p>
@@ -137,7 +142,7 @@ export default function Dashboard() {
             {' · '}{moeda.format(resumo.proximaFatura.total)}
           </p>
         )}
-        <Link to="/faturas">Ver faturas</Link>
+        <Link className="ui-link-botao" to="/faturas">Ver faturas</Link>
       </section>
     </section>
   )
