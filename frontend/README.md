@@ -27,7 +27,8 @@ src/
 ├── components/         telas e componentes (páginas inclusive)
 │   ├── RotaProtegida   redireciona para /login quem não está autenticado
 │   ├── Layout          menu + botão Sair (esqueleto mínimo, a Pessoa B evolui)
-│   ├── Login, Cadastro versões funcionais mínimas (Pessoa A refina)
+│   ├── Login, Cadastro telas de autenticação (máscara de CPF, validação, erros do servidor)
+│   ├── CampoForm       campo de formulário reutilizável (rótulo + input + dica + erro)
 │   └── Dashboard, Lancamentos, Categorias, FontesDestinos,
 │       Relatorios, Faturas, SaudeFinanceira   placeholders para B e C preencherem
 ├── contexts/
@@ -35,14 +36,15 @@ src/
 └── services/
     ├── api.js          ÚNICO ponto de acesso à API (axios)
     ├── authStorage.js  sessão no localStorage
-    └── token.js        leitura da validade do JWT
+    ├── token.js        leitura da validade do JWT
+    └── validacoes.js   validações do formulário (CPF, e-mail, senha) e máscara de CPF
 ```
 
 ## Quem faz qual tela
 
 | Tela | Arquivo | Responsável |
 |---|---|---|
-| Login e cadastro | `Login.jsx`, `Cadastro.jsx` | A |
+| Login e cadastro | `Login.jsx`, `Cadastro.jsx` | A (pronto) |
 | Lançamentos, Categorias, Fontes/Destinos | `Lancamentos.jsx`, `Categorias.jsx`, `FontesDestinos.jsx` | B |
 | Layout e componentes compartilhados | `Layout.jsx` e novos componentes | B |
 | Dashboard, Relatórios, Faturas, Saúde financeira | `Dashboard.jsx`, `Relatorios.jsx`, `Faturas.jsx`, `SaudeFinanceira.jsx` | C |
@@ -76,7 +78,7 @@ export default function Categorias() {
 
 ### Erros da API
 
-Todo erro da API tem o formato `{ erro, campos? }` (veja `docs/padrao-de-erros.md`). Use `extrairErro` para ler:
+Todo erro da API chega como `{ erro, campos? }` (veja `docs/padrao-de-erros.md`). `extrairErro` converte `erro` em `mensagem` — não leia `e.response.data.erro` direto:
 
 ```jsx
 try {
@@ -93,6 +95,20 @@ try {
 ### Sessão expirada
 
 Se a API responder **401** a uma requisição autenticada, o cliente HTTP encerra a sessão e o app volta ao `/login` sozinho. Você não precisa tratar 401 nas telas. O mesmo acontece quando o token expira com a tela aberta.
+
+## Formulários
+
+Use o `CampoForm` para que todos os formulários tenham o mesmo comportamento (mensagem de erro junto ao campo, acessibilidade). O padrão das telas de `Login.jsx` e `Cadastro.jsx` é um bom modelo:
+
+```jsx
+import CampoForm from './CampoForm.jsx'
+
+<CampoForm id="nome" name="nome" rotulo="Nome" value={valores.nome} onChange={alterar} erro={erros.nome} />
+```
+
+- Valide no cliente antes de enviar (não gasta requisição), mas **o servidor é quem decide**: mostre `campos` devolvidos pela API em `erro=`.
+- Durante o envio, desabilite o formulário (`<fieldset disabled>`) e mostre o estado ("Salvando...").
+- `services/validacoes.js` tem `cpfValido`, `emailValido`, `senhaValida` e `mascararCpf` para reaproveitar.
 
 ## Usuário logado
 

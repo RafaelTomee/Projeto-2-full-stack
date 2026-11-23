@@ -1,0 +1,2217 @@
+{
+  "info": {
+    "name": "Controle Financeiro — Isolamento (RF3)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Prova do RF3: cada usuário só enxerga e altera os próprios dados.\n\n1. Importe esta coleção e o ambiente \"Local\".\n2. Suba a API (`npm run dev` em backend/) e rode a coleção inteira (Runner) na ordem.\n3. Todos os testes devem passar. Linha de comando: `npx newman run postman/isolamento-rf3.postman_collection.json -e postman/local.postman_environment.json`.\n\nOs usuários A e B são criados pela própria API (e-mails e CPFs gerados a cada execução)."
+  },
+  "item": [
+    {
+      "name": "0. Preparação (cria os usuários A e B e os dados de cada um)",
+      "description": "Execute esta pasta primeiro. Cada usuário se cadastra pela própria API; os ids e tokens ficam no ambiente.",
+      "item": [
+        {
+          "name": "Cadastrar usuário A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/cadastro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "cadastro"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Usuário A (RF3)\",\n  \"email\": \"{{emailA}}\",\n  \"cpf\": \"{{cpfA}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function cpf() {",
+                  "  const d = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));",
+                  "  const dv = (n) => { const s = d.slice(0, n).reduce((a, v, i) => a + v * (n + 1 - i), 0); const r = (s * 10) % 11; return r === 10 ? 0 : r; };",
+                  "  d.push(dv(9)); d.push(dv(10)); return d.join('');",
+                  "}",
+                  "const t = Date.now();",
+                  "if (!pm.environment.get('emailA')) pm.environment.set('emailA', 'rf3.a.' + t + '@exemplo.com');",
+                  "pm.environment.set('cpfA', cpf());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('não devolve senha nem hash', () => pm.expect(pm.response.text()).to.not.match(/senha_hash|\\$2[aby]\\$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do usuário A",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailA}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('devolve token JWT', () => pm.expect(j.token).to.be.a('string'));",
+                  "pm.environment.set('tokenA', j.token);",
+                  "pm.environment.set('idA', j.usuario.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastrar usuário B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/cadastro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "cadastro"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Usuário B (RF3)\",\n  \"email\": \"{{emailB}}\",\n  \"cpf\": \"{{cpfB}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function cpf() {",
+                  "  const d = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));",
+                  "  const dv = (n) => { const s = d.slice(0, n).reduce((a, v, i) => a + v * (n + 1 - i), 0); const r = (s * 10) % 11; return r === 10 ? 0 : r; };",
+                  "  d.push(dv(9)); d.push(dv(10)); return d.join('');",
+                  "}",
+                  "const t = Date.now();",
+                  "if (!pm.environment.get('emailB')) pm.environment.set('emailB', 'rf3.b.' + t + '@exemplo.com');",
+                  "pm.environment.set('cpfB', cpf());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('não devolve senha nem hash', () => pm.expect(pm.response.text()).to.not.match(/senha_hash|\\$2[aby]\\$/));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login do usuário B",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{emailB}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test('devolve token JWT', () => pm.expect(j.token).to.be.a('string'));",
+                  "pm.environment.set('tokenB', j.token);",
+                  "pm.environment.set('idB', j.usuario.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B cria uma categoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"RF3 SEGREDO-B categoria\",\n  \"tipo\": \"saida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('catB', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B cria uma fonte/destino",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/fontes-destinos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fontes-destinos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"RF3 SEGREDO-B conta\",\n  \"tipo\": \"conta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('fonteB', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B cria um lançamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 SEGREDO-B lançamento\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catB}}\",\n  \"fonteDestinoId\": \"{{fonteB}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.environment.set('lancB', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A cria uma categoria",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"RF3 dados-A categoria\",\n  \"tipo\": \"saida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('catA', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A cria uma fonte/destino",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/fontes-destinos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fontes-destinos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"RF3 dados-A conta\",\n  \"tipo\": \"conta\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('fonteA', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A cria um lançamento",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 dados-A lançamento\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catA}}\",\n  \"fonteDestinoId\": \"{{fonteA}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.environment.set('lancA', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Sem token → 401",
+      "description": "Toda rota protegida recusa requisição sem Authorization e com token inválido.",
+      "item": [
+        {
+          "name": "GET /api/auth/me sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/categorias sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/fontes-destinos sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/fontes-destinos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fontes-destinos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/lancamentos sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/lancamentos/{{lancB}} sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos",
+                "{{lancB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/relatorios/categorias sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/categorias?inicio=2026-01-01&fim=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "categorias"
+              ],
+              "query": [
+                {
+                  "key": "inicio",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "fim",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/relatorios/fontes-destinos sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/fontes-destinos?inicio=2026-01-01&fim=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "fontes-destinos"
+              ],
+              "query": [
+                {
+                  "key": "inicio",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "fim",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/relatorios/faturas sem token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/faturas?meses=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "faturas"
+              ],
+              "query": [
+                {
+                  "key": "meses",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/categorias sem token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"x\",\n  \"tipo\": \"saida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/lancamentos sem token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"x\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catB}}\",\n  \"fonteDestinoId\": \"{{fonteB}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /api/lancamentos/:id sem token",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos",
+                "{{lancB}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"x\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catB}}\",\n  \"fonteDestinoId\": \"{{fonteB}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /api/lancamentos/:id sem token",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos",
+                "{{lancB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token adulterado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer ' + pm.environment.get('tokenA').slice(0, -3) + 'xyz' });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token lixo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({ key: 'Authorization', value: 'Bearer abc.def.ghi' });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('401 sem acesso', () => pm.response.to.have.status(401));",
+                  "pm.test('corpo padrão { erro }', () => pm.expect(pm.response.json()).to.have.property('erro'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. A ataca os recursos de B (GET/PUT/DELETE → 404)",
+      "description": "O núcleo do RF3: id de outro usuário é tratado como inexistente.",
+      "item": [
+        {
+          "name": "2.1 A ataca a categoria de B → 404",
+          "description": "Usuário A usa o token dele com ids que pertencem a B.",
+          "item": [
+            {
+              "name": "A lê a categoria de B (GET)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/categorias/{{catB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "categorias",
+                    "{{catB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A altera a categoria de B (PUT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/categorias/{{catB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "categorias",
+                    "{{catB}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"HACKEADA por A\",\n  \"tipo\": \"saida\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A exclui a categoria de B (DELETE)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/categorias/{{catB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "categorias",
+                    "{{catB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2.2 A ataca a fonte/destino de B → 404",
+          "description": "Usuário A usa o token dele com ids que pertencem a B.",
+          "item": [
+            {
+              "name": "A lê a fonte/destino de B (GET)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fontes-destinos/{{fonteB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fontes-destinos",
+                    "{{fonteB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A altera a fonte/destino de B (PUT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fontes-destinos/{{fonteB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fontes-destinos",
+                    "{{fonteB}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"nome\": \"HACKEADA por A\",\n  \"tipo\": \"conta\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A exclui a fonte/destino de B (DELETE)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/fontes-destinos/{{fonteB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "fontes-destinos",
+                    "{{fonteB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2.3 A ataca o lançamento de B → 404",
+          "description": "Usuário A usa o token dele com ids que pertencem a B.",
+          "item": [
+            {
+              "name": "A lê o lançamento de B (GET)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos",
+                    "{{lancB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A altera o lançamento de B (PUT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos",
+                    "{{lancB}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"HACKEADO por A\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catA}}\",\n  \"fonteDestinoId\": \"{{fonteA}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A exclui o lançamento de B (DELETE)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos",
+                    "{{lancB}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2.4 A tenta USAR recursos de B ao criar/editar os próprios dados",
+          "description": "",
+          "item": [
+            {
+              "name": "A cria lançamento com a categoria de B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 contrabando\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catB}}\",\n  \"fonteDestinoId\": \"{{fonteA}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('recusado (400 ou 404) e nada é criado/alterado com recurso de outro usuário', () => pm.expect([400, 404]).to.include(pm.response.code));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A cria lançamento com a fonte de B",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 contrabando\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catA}}\",\n  \"fonteDestinoId\": \"{{fonteB}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('recusado (400 ou 404) e nada é criado/alterado com recurso de outro usuário', () => pm.expect([400, 404]).to.include(pm.response.code));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A edita o próprio lançamento apontando para a categoria de B",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos/{{lancA}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos",
+                    "{{lancA}}"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 contrabando\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catB}}\",\n  \"fonteDestinoId\": \"{{fonteA}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('recusado (400 ou 404) e nada é criado/alterado com recurso de outro usuário', () => pm.expect([400, 404]).to.include(pm.response.code));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A tenta criar lançamento em nome de B (usuarioId no corpo é ignorado)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenA}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"tipo\": \"saida\",\n  \"descricao\": \"RF3 dono forjado\",\n  \"valor\": 12.34,\n  \"data\": \"2026-11-10\",\n  \"categoriaId\": \"{{catA}}\",\n  \"fonteDestinoId\": \"{{fonteA}}\",\n  \"usuarioId\": \"{{idB}}\",\n  \"usuario_id\": \"{{idB}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('criado, mas pertence a A (B continua sem ele)', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                      "pm.environment.set('lancForjado', pm.response.json().id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "B não enxerga o lançamento \"forjado\"",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{tokenB}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/lancamentos/{{lancForjado}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "lancamentos",
+                    "{{lancForjado}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('404 com { erro }', () => {",
+                      "  pm.response.to.have.status(404);",
+                      "  pm.expect(pm.response.json()).to.have.property('erro');",
+                      "});",
+                      "pm.test('a resposta não revela dados do dono real', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Listagens e relatórios de A não contêm dados de B",
+      "description": "Nenhum registro marcado \"SEGREDO-B\" pode aparecer para A.",
+      "item": [
+        {
+          "name": "Categorias de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Fontes/destinos de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/fontes-destinos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fontes-destinos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lançamentos de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Lançamentos de A (com filtros)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos?mes=2026-11&tipo=saida",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ],
+              "query": [
+                {
+                  "key": "mes",
+                  "value": "2026-11"
+                },
+                {
+                  "key": "tipo",
+                  "value": "saida"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Relatório por categoria de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/categorias?inicio=2026-01-01&fim=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "categorias"
+              ],
+              "query": [
+                {
+                  "key": "inicio",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "fim",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Relatório por fonte/destino de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/fontes-destinos?inicio=2026-01-01&fim=2026-12-31",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "fontes-destinos"
+              ],
+              "query": [
+                {
+                  "key": "inicio",
+                  "value": "2026-01-01"
+                },
+                {
+                  "key": "fim",
+                  "value": "2026-12-31"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Faturas de A",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/relatorios/faturas?meses=3",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "relatorios",
+                "faturas"
+              ],
+              "query": [
+                {
+                  "key": "meses",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('não contém nada de B', () => pm.expect(pm.response.text()).to.not.include('SEGREDO-B'));",
+                  "pm.test('não lista ids de B', () => {",
+                  "  const t = pm.response.text();",
+                  "  pm.expect(t).to.not.include('\"id\":' + pm.environment.get('catB') + ',\"nome\":\"RF3 SEGREDO-B');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Injeção de SQL no filtro não expõe nada (nem dá 500)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos?categoriaId=1%20OR%201=1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos"
+              ],
+              "query": [
+                {
+                  "key": "categoriaId",
+                  "value": "1%20OR%201"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 ou 200 sem dados de B, nunca 500', () => { pm.expect([200, 400]).to.include(pm.response.code); pm.expect(pm.response.text()).to.not.include('SEGREDO-B'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Os dados de B continuam intactos",
+      "description": "Depois de todos os ataques, B ainda vê exatamente o que criou.",
+      "item": [
+        {
+          "name": "B lê a própria categoria",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias/{{catB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias",
+                "{{catB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('nome original', () => pm.expect(pm.response.json().nome).to.include('SEGREDO-B'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B lê a própria fonte/destino",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/fontes-destinos/{{fonteB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fontes-destinos",
+                "{{fonteB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('nome original', () => pm.expect(pm.response.json().nome).to.include('SEGREDO-B'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B lê o próprio lançamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenB}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/lancamentos/{{lancB}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "lancamentos",
+                "{{lancB}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('descrição original', () => pm.expect(pm.response.json().descricao).to.include('SEGREDO-B'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. senha_hash nunca aparece",
+      "description": "Além do teste global (roda em TODAS as respostas), conferimos o perfil.",
+      "item": [
+        {
+          "name": "GET /api/auth/me",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenA}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('só id, nome, email', () => {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.not.have.any.keys('senha', 'senha_hash', 'senhaHash', 'hash');",
+                  "  pm.expect(j.email).to.eql(pm.environment.get('emailA'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cadastro duplicado (409) também não vaza",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/cadastro",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "cadastro"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Repetido\",\n  \"email\": \"{{emailA}}\",\n  \"cpf\": \"{{cpfB}}\",\n  \"senha\": \"{{senha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Roda após TODA requisição da coleção.",
+          "pm.test('[global] a resposta nunca contém senha_hash nem hash bcrypt', () => {",
+          "  const t = pm.response.text();",
+          "  pm.expect(t).to.not.match(/senha_hash|senhaHash/i);",
+          "  pm.expect(t).to.not.match(/\\$2[aby]\\$\\d{2}\\$/);",
+          "});",
+          "pm.test('[global] nunca responde 5xx', () => pm.expect(pm.response.code).to.be.below(500));"
+        ]
+      }
+    }
+  ]
+}

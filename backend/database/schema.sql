@@ -18,6 +18,11 @@ CREATE TABLE IF NOT EXISTS categorias (
   UNIQUE (usuario_id, nome, tipo)
 );
 
+-- A checagem LOWER(nome) do código sofre corrida entre POSTs simultâneos.
+-- O índice garante a unicidade case-insensitive também no banco.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_categorias_usuario_nome_tipo
+  ON categorias (usuario_id, LOWER(nome), tipo);
+
 CREATE TABLE IF NOT EXISTS fontes_destinos (
   id              SERIAL PRIMARY KEY,
   usuario_id      INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
@@ -31,6 +36,10 @@ CREATE TABLE IF NOT EXISTS fontes_destinos (
   CHECK (tipo <> 'cartao_credito'
          OR (dia_fechamento IS NOT NULL AND dia_vencimento IS NOT NULL AND limite IS NOT NULL))
 );
+
+-- A checagem LOWER(nome) do código sofre corrida entre POSTs simultâneos.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_fontes_destinos_usuario_nome
+  ON fontes_destinos (usuario_id, LOWER(nome));
 
 CREATE TABLE IF NOT EXISTS lancamentos (
   id                  SERIAL PRIMARY KEY,
