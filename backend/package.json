@@ -10,7 +10,8 @@
     "db:create": "node database/setup.js",
     "test": "node --test",
     "test:rf3": "node --test test/isolamento.test.js",
-    "audit:rotas": "node scripts/auditar-rotas.mjs"
+    "audit:rotas": "node scripts/auditar-rotas.mjs",
+    "db:seed": "node database/seed.js"
   },
   "license": "ISC",
   "dependencies": {
