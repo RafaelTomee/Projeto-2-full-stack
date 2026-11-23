@@ -106,13 +106,13 @@ export default function SaudeFinanceira() {
 
       {erro && (
         <div>
-          <p role="alert">{erro}</p>
+          <p className="ui-erro" role="alert">{erro}</p>
           <button type="button" onClick={tentarNovamente}>Tentar novamente</button>
         </div>
       )}
 
       {dados && !dados.temLancamentos && (
-        <p>Sem lançamentos suficientes para analisar este período.</p>
+        <p className="ui-vazio">Sem lançamentos suficientes para analisar este período.</p>
       )}
 
       {dados?.temLancamentos && (
@@ -140,7 +140,7 @@ export default function SaudeFinanceira() {
             </div>
           </section>
 
-          <section>
+          <section className="ui-painel ui-secao">
             <h2>Projeção de saldo</h2>
             {dados.projecao.length > 0 ? (
               <GraficoProjecao projecao={dados.projecao} />
@@ -148,11 +148,11 @@ export default function SaudeFinanceira() {
               <p>Nenhum mês disponível para projeção.</p>
             )}
             {dados.temSaldoNegativo && (
-              <p role="alert">A projeção indica saldo negativo.</p>
+              <p className="ui-erro" role="alert">A projeção indica saldo negativo.</p>
             )}
           </section>
 
-          <section>
+          <section className="ui-painel ui-secao">
             <h2>Dicas</h2>
             {dados.dicas.length > 0 ? (
               <ul>
@@ -165,7 +165,7 @@ export default function SaudeFinanceira() {
         </>
       )}
 
-      <p>
+      <p className="ui-dica ui-secao">
         As informações desta página são educativas e não constituem
         recomendação financeira profissional.
       </p>

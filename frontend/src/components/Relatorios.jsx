@@ -43,8 +43,8 @@ function formatarVariacao(valor) {
 
 function TabelaFontes({ linhas, totais }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table>
+    <div className="ui-tabela-rolavel" tabIndex={0} role="region" aria-label="Tabela do relatório">
+      <table className="ui-tabela">
         <thead>
           <tr>
             <th scope="col">Fonte ou destino</th>
@@ -88,8 +88,8 @@ function RelatorioCategorias({ linhas, anterior }) {
         <time dateTime={anterior.fim}>{anterior.fim.split('-').reverse().join('/')}</time>.
       </p>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table>
+      <div className="ui-tabela-rolavel" tabIndex={0} role="region" aria-label="Tabela do relatório">
+        <table className="ui-tabela">
           <thead>
             <tr>
               <th scope="col">Categoria</th>
@@ -108,27 +108,26 @@ function RelatorioCategorias({ linhas, anterior }) {
                 <td>{moeda.format(total)}</td>
                 <td>{percentual.format(participacao / 100)}</td>
                 <td>{totalAnterior === undefined ? '—' : moeda.format(totalAnterior)}</td>
-                <td>{formatarVariacao(variacao)}</td>
+                <td className={variacao > 0 ? 'dashboard-saida' : variacao < 0 ? 'dashboard-entrada' : undefined}>{formatarVariacao(variacao)}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <section>
+      <section className="ui-painel ui-secao">
         <h2>Movimentação por categoria</h2>
         {categoriasComMovimento.length === 0 ? (
           <p>Nenhuma movimentação no período atual.</p>
         ) : (
-          <ul>
+          <ul className="dashboard-lista">
             {categoriasComMovimento.map(({ id, nome, total }) => (
               <li key={id}>
-                <div>{nome} · {moeda.format(total)}</div>
+                <div className="dashboard-linha"><span>{nome}</span><b>{moeda.format(total)}</b></div>
                 <meter
                   aria-label={`Total de ${nome}`}
                   value={total}
                   max={maiorTotal}
-                  style={{ width: '100%', maxWidth: 360 }}
                 />
               </li>
             ))}
@@ -171,18 +170,17 @@ export default function Relatorios() {
     <section>
       <h1>Relatórios</h1>
 
-      <label>
-        Agrupar por{' '}
-        <select value={modo} onChange={(evento) => consultar(evento.target.value, periodo)}>
-          <option value="fonte">Fonte/destino</option>
-          <option value="categoria">Categoria</option>
-        </select>
-      </label>
-
-      <form onSubmit={(evento) => {
+      <form className="ui-filtros" onSubmit={(evento) => {
         evento.preventDefault()
         consultar(modo, filtro)
       }}>
+        <label>
+          Agrupar por{' '}
+          <select value={modo} onChange={(evento) => consultar(evento.target.value, periodo)}>
+            <option value="fonte">Fonte/destino</option>
+            <option value="categoria">Categoria</option>
+          </select>
+        </label>
         <label>
           Data inicial{' '}
           <input
@@ -204,12 +202,12 @@ export default function Relatorios() {
             onChange={(evento) => setFiltro({ ...filtro, fim: evento.target.value })}
           />
         </label>{' '}
-        <button type="submit">Aplicar filtro</button>
+        <button type="submit" className="ui-botao-primario">Aplicar filtro</button>
       </form>
 
-      {erro && <p role="alert">{erro}</p>}
+      {erro && <p className="ui-erro" role="alert">{erro}</p>}
       {!relatorio && !erro && <p role="status">Carregando relatório…</p>}
-      {relatorio?.linhas.length === 0 && <p>Nenhum lançamento encontrado.</p>}
+      {relatorio?.linhas.length === 0 && <p className="ui-vazio">Nenhum lançamento encontrado.</p>}
 
       {relatorio?.linhas.length > 0 && (
         modo === 'categoria'

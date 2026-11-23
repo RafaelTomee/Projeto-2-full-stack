@@ -2,6 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, extrairErro } from '../services/api.js'
 import { categoriaParaFormulario, categoriaParaPayload } from '../utils/formularios.js'
 import { Loading, MensagemErro, ModalConfirmacao, Vazio } from './ui/index.js'
+import AvisoAcao from './ui/AvisoAcao.jsx'
+
+import ModalFormulario from './ui/ModalFormulario.jsx'
 
 const ROTULOS = { entrada: 'Entrada', saida: 'Saída' }
 
@@ -10,6 +13,8 @@ export default function Categorias() {
   const [carregando, setCarregando] = useState(true)
   const [erroCarregar, setErroCarregar] = useState(null)
   const [formulario, setFormulario] = useState(() => categoriaParaFormulario())
+  const [formularioAberto, setFormularioAberto] = useState(false)
+  const [aviso, setAviso] = useState('')
   const [editando, setEditando] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [errosCampo, setErrosCampo] = useState({})
@@ -17,7 +22,6 @@ export default function Categorias() {
   const [excluindo, setExcluindo] = useState(null)
   const [erroExcluir, setErroExcluir] = useState(null)
   const [excluindoEmAndamento, setExcluindoEmAndamento] = useState(false)
-  const nomeRef = useRef(null)
   const editandoRef = useRef(null)
 
   useEffect(() => {
@@ -58,6 +62,7 @@ export default function Categorias() {
   const alterar = (campo, valor) => setFormulario((atual) => ({ ...atual, [campo]: valor }))
 
   const limparFormulario = () => {
+    setFormularioAberto(false)
     setFormulario(categoriaParaFormulario())
     setEditando(null)
     setErrosCampo({})
@@ -66,6 +71,7 @@ export default function Categorias() {
 
   const aoEnviar = async (evento) => {
     evento.preventDefault()
+    setAviso('')
     setSalvando(true)
     setErrosCampo({})
     setErroSalvar(null)
@@ -73,6 +79,7 @@ export default function Categorias() {
     try {
       if (editando) await api.put(`/categorias/${editando}`, payload)
       else await api.post('/categorias', payload)
+      setAviso(editando ? 'Categoria: edição salva.' : 'Categoria: cadastro salvo.')
       limparFormulario()
       await recarregar()
     } catch (erro) {
@@ -89,19 +96,18 @@ export default function Categorias() {
     setEditando(categoria.id)
     setErrosCampo({})
     setErroSalvar(null)
-    requestAnimationFrame(() => {
-      nomeRef.current?.scrollIntoView({ block: 'center' })
-      nomeRef.current?.focus()
-    })
+    setFormularioAberto(true)
   }
 
   const confirmarExclusao = async () => {
     if (!excluindo || excluindoEmAndamento) return
+    setAviso('')
     setExcluindoEmAndamento(true)
     setErroExcluir(null)
     try {
       await api.delete(`/categorias/${excluindo.id}`)
       setExcluindo(null)
+      setAviso('Categoria: exclusão concluída.')
       await recarregar()
     } catch (erro) {
       // Mantém o modal aberto e mostra o erro dentro dele (409 por vínculo).
@@ -115,55 +121,66 @@ export default function Categorias() {
     <section>
       <div className="ui-cabecalho">
         <h1>Categorias</h1>
+        <button type="button" className="ui-botao-primario" onClick={() => {
+          limparFormulario()
+          setFormularioAberto(true)
+        }}>Nova categoria</button>
       </div>
 
-      <form className="ui-formulario" onSubmit={aoEnviar}>
-        <div>
-          <label htmlFor="categoria-nome">Nome</label>
-          <input
-            ref={nomeRef}
-            id="categoria-nome"
-            value={formulario.nome}
-            onChange={(evento) => alterar('nome', evento.target.value)}
-            aria-invalid={Boolean(errosCampo.nome)}
-            aria-describedby={errosCampo.nome ? 'categoria-nome-erro' : undefined}
-            maxLength={60}
-          />
-          {errosCampo.nome && (
-            <p id="categoria-nome-erro" className="erro-campo">{errosCampo.nome}</p>
-          )}
-        </div>
-        <div>
-          <label htmlFor="categoria-tipo">Tipo</label>
-          <select
-            id="categoria-tipo"
-            value={formulario.tipo}
-            onChange={(evento) => alterar('tipo', evento.target.value)}
-            aria-invalid={Boolean(errosCampo.tipo)}
-            aria-describedby={errosCampo.tipo ? 'categoria-tipo-erro' : undefined}
-          >
-            <option value="entrada">Entrada</option>
-            <option value="saida">Saída</option>
-          </select>
-          {errosCampo.tipo && (
-            <p id="categoria-tipo-erro" className="erro-campo">{errosCampo.tipo}</p>
-          )}
-        </div>
-        <div className="ui-formulario-acoes">
-          <button type="submit" disabled={salvando}>
-            {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Adicionar'}
-          </button>
-          {editando && (
-            <button type="button" className="ui-botao-secundario" onClick={limparFormulario}>
-              Cancelar
-            </button>
-          )}
-        </div>
-      </form>
+      {formularioAberto && (
+        <ModalFormulario
+          titulo={editando ? 'Editar categoria' : 'Nova categoria'}
+          salvando={salvando}
+          onCancelar={limparFormulario}
+        >
+          <form className="ui-formulario" onSubmit={aoEnviar}>
+            <div>
+              <label htmlFor="categoria-nome">Nome</label>
+              <input
+                id="categoria-nome"
+                value={formulario.nome}
+                onChange={(evento) => alterar('nome', evento.target.value)}
+                aria-invalid={Boolean(errosCampo.nome)}
+                aria-describedby={errosCampo.nome ? 'categoria-nome-erro' : undefined}
+                maxLength={60}
+              />
+              {errosCampo.nome && (
+                <p id="categoria-nome-erro" className="erro-campo">{errosCampo.nome}</p>
+              )}
+            </div>
+            <div>
+              <label htmlFor="categoria-tipo">Tipo</label>
+              <select
+                id="categoria-tipo"
+                value={formulario.tipo}
+                onChange={(evento) => alterar('tipo', evento.target.value)}
+                aria-invalid={Boolean(errosCampo.tipo)}
+                aria-describedby={errosCampo.tipo ? 'categoria-tipo-erro' : undefined}
+              >
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+              </select>
+              {errosCampo.tipo && (
+                <p id="categoria-tipo-erro" className="erro-campo">{errosCampo.tipo}</p>
+              )}
+            </div>
+            <div className="ui-formulario-acoes">
+              <button type="submit" disabled={salvando}>
+                {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Adicionar'}
+              </button>
+              <button type="button" className="ui-botao-secundario" onClick={limparFormulario} disabled={salvando}>
+                Cancelar
+              </button>
+            </div>
+          </form>
 
-      {erroSalvar && Object.keys(errosCampo).length === 0 && (
-        <MensagemErro mensagem={erroSalvar} />
+          {erroSalvar && Object.keys(errosCampo).length === 0 && (
+            <MensagemErro mensagem={erroSalvar} />
+          )}
+        </ModalFormulario>
       )}
+
+      {aviso && <AvisoAcao mensagem={aviso} onFechar={() => setAviso('')} />}
 
       {carregando ? (
         <Loading mensagem="Carregando categorias..." />

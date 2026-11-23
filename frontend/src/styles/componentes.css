@@ -343,3 +343,26 @@
 @media (prefers-reduced-motion: reduce) {
   .ui-spinner { animation: none; }
 }
+
+.ui-secao { margin-top: 1rem; }
+.ui-modal-formulario { width: min(560px, calc(100% - 2rem)); border: 0; color: var(--ink); }
+.ui-modal-formulario::backdrop { background: rgb(16 46 43 / 56%); }
+.ui-modal-formulario .ui-formulario { margin: 0; padding: 0; border: 0; }
+.ui-modal-formulario .ui-formulario-acoes { grid-column: 1 / -1; }
+.ui-toast {
+  position: fixed;
+  z-index: 30;
+  inset-inline-end: 1rem;
+  inset-block-end: 1rem;
+  max-width: min(32rem, calc(100% - 2rem));
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
+  box-shadow: var(--shadow);
+}
+.fatura-limite { display: block; width: min(100%, 35rem); accent-color: var(--brand); }
+.fatura-periodo { margin-top: 1rem; padding: 1rem; border: 1px solid var(--border); border-radius: 10px; background: #f6faf9; }
+.fatura-periodo h3 { margin-top: 0; }
+.ui-tabela-rolavel th, .ui-tabela-rolavel td { overflow-wrap: anywhere; }
