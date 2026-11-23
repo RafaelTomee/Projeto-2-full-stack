@@ -42,9 +42,9 @@ export default function Faturas() {
     <section>
       <h1>Faturas dos cartões</h1>
 
-      {erro && <p role="alert">{erro}</p>}
+      {erro && <p className="ui-erro" role="alert">{erro}</p>}
       {!erro && cartoes === null && <p role="status">Carregando faturas…</p>}
-      {cartoes?.length === 0 && <p>Nenhum cartão de crédito cadastrado.</p>}
+      {cartoes?.length === 0 && <p className="ui-vazio">Nenhum cartão de crédito cadastrado.</p>}
 
       {cartoes?.map((cartao) => {
         const limite = cartao.limite
@@ -52,7 +52,7 @@ export default function Faturas() {
         const disponivel = cartao.limiteDisponivel
 
         return (
-          <section key={cartao.id}>
+          <section key={cartao.id} className="ui-painel ui-secao">
             <h2>{cartao.nome}</h2>
 
             <p>
@@ -61,7 +61,7 @@ export default function Faturas() {
               {' · '}Limite total: {moeda.format(limite)}
             </p>
             {limite > 0 && (
-              <progress
+              <progress className="fatura-limite"
                 aria-label={`Limite usado do cartão ${cartao.nome}`}
                 value={Math.min(usado, limite)}
                 max={limite}
@@ -73,7 +73,7 @@ export default function Faturas() {
               const mes = formatoMes.format(dataUtc(fatura.vencimento))
 
               return (
-                <article key={vencimento}>
+                <article key={vencimento} className="fatura-periodo">
                   <h3>{indice === 0 ? 'Fatura atual' : 'Próxima fatura'} · {mes}</h3>
                   <p>
                     Fechamento:{' '}

@@ -13,6 +13,7 @@ import {
   rotuloParcela,
 } from '../utils/lancamentos.js'
 import { CampoMoeda, Loading, MensagemErro, ModalConfirmacao, Vazio } from './ui/index.js'
+import AvisoAcao from './ui/AvisoAcao.jsx'
 
 const ROTULOS_TIPO = { entrada: 'Entrada', saida: 'Saída' }
 const ROTULOS_ERROS = {
@@ -209,6 +210,7 @@ export default function Lancamentos() {
       if (editando) await api.put(`/lancamentos/${editando}`, payload)
       else await api.post('/lancamentos', payload)
       limparFormulario()
+      setAviso(editando ? 'Lançamento atualizado.' : 'Lançamento salvo.')
       if (!editando && foraDoPeriodo(payload.data, filtros.inicio, filtros.fim)) {
         setAviso(`Lançamento salvo em ${formatarData(payload.data)} — fora do período filtrado.`)
       }
@@ -230,6 +232,7 @@ export default function Lancamentos() {
       const sufixo = todas && excluindo.grupoParcelamento ? '?todasParcelas=true' : ''
       await api.delete(`/lancamentos/${excluindo.id}${sufixo}`)
       setExcluindo(null)
+      setAviso(todas ? 'Parcelas excluídas.' : 'Lançamento excluído.')
       await recarregar()
     } catch (erro) {
       // Mantém o modal aberto: o erro aparece dentro dele, acima do overlay.
@@ -465,7 +468,7 @@ export default function Lancamentos() {
           rotulos={ROTULOS_ERROS}
         />
       )}
-      {aviso && <p className="ui-aviso" role="status">{aviso}</p>}
+      {aviso && <AvisoAcao mensagem={aviso} onFechar={() => setAviso('')} />}
 
       {carregando ? (
         <Loading mensagem="Carregando lançamentos..." />
