@@ -268,11 +268,6 @@ npm run build
   ```
 - **Segurança:** nenhuma resposta da API contém `senha_hash` (verificado nos testes de isolamento e na coleção Postman).
 
-## Apresentação e entrega
-
-- Roteiro de 10 minutos, com divisão de falas: [`docs/apresentacao.md`](docs/apresentacao.md).
-- Checklist final do grupo (seção 10.14), com como verificar cada item: [`docs/checklist-final.md`](docs/checklist-final.md).
-
 ## Fluxo de trabalho do grupo
 
 1. Acompanhar a tarefa pela issue correspondente.
